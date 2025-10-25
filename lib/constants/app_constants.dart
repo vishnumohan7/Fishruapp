@@ -8,7 +8,8 @@ class AppConstants {
   static String get shopifyAccessToken {
     final token = dotenv.env['SHOPIFY_ACCESS_TOKEN'];
     if (token == null || token.isEmpty) {
-      throw Exception('SHOPIFY_ACCESS_TOKEN not found in .env file');
+      print('Warning: SHOPIFY_ACCESS_TOKEN not found in .env file, using empty string');
+      return '';
     }
     return token;
   }
@@ -16,7 +17,8 @@ class AppConstants {
   static String get shopifyStorefrontAccessToken {
     final token = dotenv.env['SHOPIFY_STOREFRONT_TOKEN'];
     if (token == null || token.isEmpty) {
-      throw Exception('SHOPIFY_STOREFRONT_TOKEN not found in .env file');
+      print('Warning: SHOPIFY_STOREFRONT_TOKEN not found in .env file, using empty string');
+      return '';
     }
     return token;
   }
@@ -34,13 +36,7 @@ class AppConstants {
   static const String cartEndpoint = '/cart.json';
   
   // Backend Configuration
-  static String get backendBaseUrl {
-    final url = dotenv.env['BACKEND_BASE_URL'];
-    if (url == null || url.isEmpty) {
-      throw Exception('BACKEND_BASE_URL not found in .env file');
-    }
-    return url;
-  }
+  static String get backendBaseUrl => dotenv.env['BACKEND_BASE_URL'] ?? 'https://api.fishru.com';
   static const String createCodOrderPath = '/api/shopify/cod-order';
   
   // App Configuration

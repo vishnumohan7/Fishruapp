@@ -15,12 +15,18 @@ class ShopifyService {
   void initialize() {
     print('Initializing Shopify Service...');
     print('Admin API URL: ${AppConstants.adminApiUrl}');
-    print('Access Token: ${AppConstants.shopifyAccessToken.substring(0, 10)}...');
+    
+    final token = AppConstants.shopifyAccessToken;
+    if (token.isNotEmpty) {
+      print('Access Token: ${token.substring(0, 10)}...');
+    } else {
+      print('Warning: No access token found - API calls will fail');
+    }
     
     _dio = Dio(BaseOptions(
       baseUrl: AppConstants.adminApiUrl,
       headers: {
-        'X-Shopify-Access-Token': AppConstants.shopifyAccessToken,
+        'X-Shopify-Access-Token': token,
         'Content-Type': 'application/json',
       },
       connectTimeout: const Duration(seconds: 30),
