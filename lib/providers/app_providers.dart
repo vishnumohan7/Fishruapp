@@ -3,15 +3,12 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../models/user.dart';
-import '../models/order.dart';
-import '../models/notification.dart';
+
 import '../services/shopify_service.dart';
 import '../services/shopify_graphql_service.dart';
 import '../services/mock_data_service.dart';
 import '../constants/app_constants.dart';
-import 'order_provider.dart';
-import 'wishlist_provider.dart';
-import 'notification_provider.dart';
+
 
 // Export all providers for easy access
 export 'order_provider.dart';

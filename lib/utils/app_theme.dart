@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color primaryColor = Color(0xFF2E7D32);
-  static const Color secondaryColor = Color(0xFF4CAF50);
+  static const Color primaryColor = Color(0xFF00ACC1);
+  static const Color secondaryColor = Color(0xFF00ACC1);
   static const Color accentColor = Color(0xFFFF9800);
   static const Color errorColor = Color(0xFFD32F2F);
   static const Color warningColor = Color(0xFFFF9800);
-  static const Color successColor = Color(0xFF4CAF50);
+  static const Color successColor = Color(0xFF00ACC1);
   static const Color infoColor = Color(0xFF2196F3);
   
   static const Color backgroundColor = Color(0xFFF5F5F5);
@@ -27,8 +27,8 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: Brightness.light,
-        primary: primaryColor,
-        secondary: secondaryColor,
+        primary: Color(0xFF00ACC1),
+        secondary: Color(0xFF00ACC1),
         surface: surfaceColor,
         error: errorColor,
       ),

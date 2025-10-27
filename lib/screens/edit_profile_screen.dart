@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
-import '../models/user.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -36,7 +35,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _firstNameController.text = user.firstName ?? '';
       _lastNameController.text = user.lastName ?? '';
       _emailController.text = user.email;
-      _phoneController.text = user.phone ?? '';
+      _phoneController.text = user.phone ??'';
       _addressController.text = user.address ?? '';
       _cityController.text = user.city ?? '';
       _stateController.text = user.state ?? '';
@@ -61,8 +60,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: Colors.indigo[600],
+        leading: IconButton(
+      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+      onPressed: () => Navigator.pop(context),
+    ),
+        title: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -91,55 +94,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Profile Picture Section
-                  Center(
-                    child: Column(
-                      children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 60,
-                              backgroundColor: Colors.grey[300],
-                              backgroundImage: userProvider.currentUser?.profileImage != null
-                                  ? NetworkImage(userProvider.currentUser!.profileImage!)
-                                  : null,
-                              child: userProvider.currentUser?.profileImage == null
-                                  ? Icon(
-                                      Icons.person,
-                                      size: 60,
-                                      color: Colors.grey[600],
-                                    )
-                                  : null,
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.indigo[600],
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.camera_alt,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: _changeProfilePicture,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: _changeProfilePicture,
-                          child: const Text('Change Profile Picture'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
                   // Personal Information Section
                   const Text(
                     'Personal Information',
@@ -156,7 +110,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: TextFormField(
                           controller: _firstNameController,
                           decoration: const InputDecoration(
-                            labelText: 'First Name (Optional)',
+                            labelText: 'First Name ',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -166,7 +120,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: TextFormField(
                           controller: _lastNameController,
                           decoration: const InputDecoration(
-                            labelText: 'Last Name (Optional)',
+                            labelText: 'Last Name ',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -259,15 +213,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 32),
-
+               
                   // Save Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: userProvider.isLoading ? null : _saveProfile,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo[600],
+                        backgroundColor: Color(0xFF00ACC1),
                         foregroundColor: Colors.white,
+                        
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -359,43 +314,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       }
     }
-  }
-
-  void _changeProfilePicture() {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Take Photo'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Implement camera functionality
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Implement gallery functionality
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.cancel),
-                title: const Text('Cancel'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _changePassword() {

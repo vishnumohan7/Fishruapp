@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
 import '../utils/app_theme.dart';
-import '../models/product.dart';
 import '../widgets/product_card.dart';
 import 'auth_screen.dart';
 import 'products_screen.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
 import 'wishlist_screen.dart';
-import 'orders_screen.dart';
-import 'notifications_screen.dart';
-import 'edit_profile_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -99,6 +96,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         title: Text(
           'Fishru',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -107,12 +105,12 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implement search
-            },
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.search),
+          //   onPressed: () {
+             // TODO: Implement search
+          //   },
+          // ),
           Consumer<WishlistProvider>(
             builder: (context, wishlistProvider, child) {
               return Stack(
@@ -228,6 +226,76 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
               ),
             ),
 
+            // Special Offers Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Get 20% Off',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'On your first order',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              // TODO: Implement offer
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primaryColor,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Shop Now',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             // Categories Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -260,8 +328,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                           scrollDirection: Axis.horizontal,
                           itemCount: productProvider.collections.length,
                           itemBuilder: (context, index) {
-                            final collection =
-                                productProvider.collections[index];
+                            final collection = productProvider.collections[index];
                             return Container(
                               width: 80,
                               margin: const EdgeInsets.only(right: 12),
@@ -271,9 +338,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                                     width: 60,
                                     height: 60,
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withOpacity(
-                                        0.1,
-                                      ),
+                                      color: AppTheme.primaryColor.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Icon(
@@ -285,9 +350,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                                   const SizedBox(height: 8),
                                   Text(
                                     collection['title'] ?? 'Category',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    style: Theme.of(context).textTheme.bodySmall,
                                     textAlign: TextAlign.center,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -304,7 +367,7 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Featured Products Section
             Padding(
@@ -351,76 +414,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     },
                   ),
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Special Offers Section
-            Container(
-              width: double.infinity,
-              height: 120,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16), // 🔹 reduced from 20
-                child: Column(
-                  mainAxisSize: MainAxisSize.min, // 🔹 important
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Get 20% Off',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'On your first order',
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            // TODO: Implement offer
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppTheme.primaryColor,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ), // 🔹 smaller padding
-                            minimumSize:
-                                Size.zero, // 🔹 prevent default min size
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text(
-                            'Shop Now',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
               ),
             ),
 

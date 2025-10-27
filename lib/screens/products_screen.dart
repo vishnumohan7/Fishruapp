@@ -35,12 +35,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Media Query for responsive design
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
+    final isDesktop = size.width > 900;
+    final horizontalPadding = isDesktop ? 24.0 : (isTablet ? 20.0 : 16.0);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products'),
+        title: Text(
+          'Products',
+          style: TextStyle(
+            fontSize: isDesktop ? 22 : (isTablet ? 20 : 18),
+          ),
+        ),
         actions: [
           IconButton(
-            icon: Icon(_isGridView ? Icons.list : Icons.grid_view),
+            icon: Icon(
+              _isGridView ? Icons.list : Icons.grid_view,
+              size: isDesktop ? 26 : (isTablet ? 24 : 22),
+            ),
             onPressed: () {
               setState(() {
                 _isGridView = !_isGridView;
@@ -53,17 +67,29 @@ class _ProductsScreenState extends State<ProductsScreen> {
         children: [
           // Search and Filter Bar
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(horizontalPadding),
             child: Column(
               children: [
                 // Search Bar
                 TextField(
                   controller: _searchController,
+                  style: TextStyle(
+                    fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search products...',
-                    prefixIcon: const Icon(Icons.search),
+                    hintStyle: TextStyle(
+                      fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: isDesktop ? 24 : (isTablet ? 22 : 20),
+                    ),
                     suffixIcon: IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: Icon(
+                        Icons.clear,
+                        size: isDesktop ? 24 : (isTablet ? 22 : 20),
+                      ),
                       onPressed: () {
                         _searchController.clear();
                         context.read<ProductProvider>().loadProducts();
@@ -75,6 +101,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.grey[100],
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 16 : 12,
+                      vertical: isDesktop ? 16 : 12,
+                    ),
                   ),
                   onSubmitted: (value) {
                     if (value.isNotEmpty) {
@@ -85,7 +115,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 12),
+                SizedBox(height: isDesktop ? 16 : 12),
                 
                 // Filter Row
                 Row(
@@ -96,25 +126,42 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         builder: (context, productProvider, child) {
                           return DropdownButtonFormField<String>(
                             value: _selectedCategory,
+                            style: TextStyle(
+                              fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              color: Colors.black87,
+                            ),
                             decoration: InputDecoration(
                               labelText: 'Category',
+                              labelStyle: TextStyle(
+                                fontSize: isDesktop ? 14 : (isTablet ? 13 : 12),
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: isDesktop ? 14 : 12,
+                                vertical: isDesktop ? 12 : 8,
                               ),
                             ),
                             items: [
-                              const DropdownMenuItem(
+                              DropdownMenuItem(
                                 value: 'All',
-                                child: Text('All Categories'),
+                                child: Text(
+                                  'All Categories',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                                  ),
+                                ),
                               ),
                               ...productProvider.collections.map(
                                 (collection) => DropdownMenuItem(
                                   value: collection['id'].toString(),
-                                  child: Text(collection['title'] ?? 'Category'),
+                                  child: Text(
+                                    collection['title'] ?? 'Category',
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -133,38 +180,65 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ),
                     ),
                     
-                    const SizedBox(width: 12),
+                    SizedBox(width: isDesktop ? 16 : 12),
                     
                     // Sort Filter
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _sortBy,
+                        style: TextStyle(
+                          fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                          color: Colors.black87,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Sort By',
+                          labelStyle: TextStyle(
+                            fontSize: isDesktop ? 14 : (isTablet ? 13 : 12),
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: isDesktop ? 14 : 12,
+                            vertical: isDesktop ? 12 : 8,
                           ),
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: 'name',
-                            child: Text('Name'),
+                            child: Text(
+                              'Name',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              ),
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'price_low',
-                            child: Text('Price: Low to High'),
+                            child: Text(
+                              'Price: Low to High',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              ),
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'price_high',
-                            child: Text('Price: High to Low'),
+                            child: Text(
+                              'Price: High to Low',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              ),
+                            ),
                           ),
                           DropdownMenuItem(
                             value: 'newest',
-                            child: Text('Newest'),
+                            child: Text(
+                              'Newest',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              ),
+                            ),
                           ),
                         ],
                         onChanged: (value) {
@@ -186,70 +260,97 @@ class _ProductsScreenState extends State<ProductsScreen> {
             child: Consumer<ProductProvider>(
               builder: (context, productProvider, child) {
                 if (productProvider.isLoading && productProvider.products.isEmpty) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
+                  return Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: isDesktop ? 4 : 3,
+                    ),
                   );
                 }
                 
                 if (productProvider.error != null) {
                   return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Error loading products',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          productProvider.error!,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                    child: Padding(
+                      padding: EdgeInsets.all(horizontalPadding),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: isDesktop ? 80 : (isTablet ? 72 : 64),
+                            color: Colors.grey[400],
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            productProvider.clearError();
-                            productProvider.loadProducts();
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
+                          SizedBox(height: isDesktop ? 20 : 16),
+                          Text(
+                            'Error loading products',
+                            style: TextStyle(
+                              fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: isDesktop ? 12 : 8),
+                          Text(
+                            productProvider.error!,
+                            style: TextStyle(
+                              fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: isDesktop ? 24 : 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              productProvider.clearError();
+                              productProvider.loadProducts();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isDesktop ? 32 : (isTablet ? 28 : 24),
+                                vertical: isDesktop ? 14 : (isTablet ? 12 : 10),
+                              ),
+                            ),
+                            child: Text(
+                              'Retry',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
                 
                 if (productProvider.products.isEmpty) {
                   return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No products found',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Try adjusting your search or filters',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                    child: Padding(
+                      padding: EdgeInsets.all(horizontalPadding),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.shopping_bag_outlined,
+                            size: isDesktop ? 80 : (isTablet ? 72 : 64),
+                            color: Colors.grey[400],
                           ),
-                        ),
-                      ],
+                          SizedBox(height: isDesktop ? 20 : 16),
+                          Text(
+                            'No products found',
+                            style: TextStyle(
+                              fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: isDesktop ? 12 : 8),
+                          Text(
+                            'Try adjusting your search or filters',
+                            style: TextStyle(
+                              fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -258,7 +359,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   onRefresh: () async {
                     await productProvider.loadProducts();
                   },
-                  child: _isGridView ? _buildGridView(productProvider) : _buildListView(productProvider),
+                  child: _isGridView 
+                      ? _buildGridView(productProvider, isDesktop, isTablet, horizontalPadding) 
+                      : _buildListView(productProvider, isDesktop, isTablet, horizontalPadding),
                 );
               },
             ),
@@ -268,14 +371,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildGridView(ProductProvider productProvider) {
+  Widget _buildGridView(ProductProvider productProvider, bool isDesktop, bool isTablet, double horizontalPadding) {
+    int crossAxisCount = isDesktop ? 4 : (isTablet ? 3 : 2);
+    double childAspectRatio = isDesktop ? 0.7 : (isTablet ? 0.68 : 0.65);
+    double spacing = isDesktop ? 16 : (isTablet ? 14 : 12);
+    
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+      padding: EdgeInsets.all(horizontalPadding),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: childAspectRatio,
+        crossAxisSpacing: spacing,
+        mainAxisSpacing: spacing,
       ),
       itemCount: productProvider.products.length,
       itemBuilder: (context, index) {
@@ -288,9 +395,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildListView(ProductProvider productProvider) {
+  Widget _buildListView(ProductProvider productProvider, bool isDesktop, bool isTablet, double horizontalPadding) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(horizontalPadding),
       itemCount: productProvider.products.length,
       itemBuilder: (context, index) {
         final product = productProvider.products[index];
