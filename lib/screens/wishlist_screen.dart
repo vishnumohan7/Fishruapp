@@ -109,28 +109,26 @@ class _WishlistScreenState extends State<WishlistScreen> {
             onRefresh: () async {
               await wishlistProvider.loadWishlist();
             },
-            child: GridView.builder(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                16,
-                16,
-                16 + 80 + bottomPadding, // Add padding for bottom nav bar
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 80 + bottomPadding),
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.7,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: wishlistProvider.wishlistItems.length,
+                itemBuilder: (context, index) {
+                  final product = wishlistProvider.wishlistItems[index];
+                  return ProductCard(
+                    product: product,
+                    layout: ProductCardLayout.compact,
+                    showCartButton: false,
+                  );
+                },
               ),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.7,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: wishlistProvider.wishlistItems.length,
-              itemBuilder: (context, index) {
-                final product = wishlistProvider.wishlistItems[index];
-                return ProductCard(
-                  product: product,
-                  layout: ProductCardLayout.compact,
-                  showCartButton: false,
-                );
-              },
             ),
           );
         },

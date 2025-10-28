@@ -46,7 +46,7 @@ class ProductCard extends StatelessWidget {
   Widget _buildGridCard(BuildContext context) {
     return Container(
       width: width ?? 160,
-      height: height ?? 280,
+      height: height ??280,
       margin: margin ?? const EdgeInsets.only(right: 12),
       child: InkWell(
         onTap: onTap ?? () => _navigateToProductDetail(context),
