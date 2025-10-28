@@ -1,10 +1,11 @@
+import 'dart:ui';
 
-import 'package:fishru/providers/app_providers.dart';
-import 'package:fishru/screens/home_screen.dart';
-import 'package:fishru/utils/app_theme.dart';
 import 'package:fishru/widgets/custom_textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/app_providers.dart';
+import '../utils/app_theme.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -42,16 +43,16 @@ class _LoginScreenState extends State<LoginScreen> {
               Column(
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.primaryColor,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Image.asset(
-                      'assets/logo.png',
-                      fit: BoxFit.contain,
+                    child: const Icon(
+                      Icons.shopping_bag,
+                      color: Colors.white,
+                      size: 40,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -277,6 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 }
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
