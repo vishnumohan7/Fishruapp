@@ -18,15 +18,53 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Media Query for responsive design
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
+    final isDesktop = size.width > 900;
+    final horizontalPadding = isDesktop ? 24.0 : (isTablet ? 20.0 : 16.0);
+    
+    // Get the bottom padding (which includes bottom nav bar height)
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checkout'),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            size: isDesktop ? 24 : (isTablet ? 22 : 20),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Checkout',
+          style: TextStyle(
+            fontSize: isDesktop ? 22 : (isTablet ? 20 : 18),
+          ),
+        ),
       ),
       body: Consumer<CartProvider>(
         builder: (context, cartProvider, child) {
           if (cartProvider.items.isEmpty) {
-            return const Center(
-              child: Text('Your cart is empty'),
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: isDesktop ? 80 : (isTablet ? 72 : 64),
+                    color: Colors.grey[400],
+                  ),
+                  SizedBox(height: isDesktop ? 20 : 16),
+                  Text(
+                    'Your cart is empty',
+                    style: TextStyle(
+                      fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -36,33 +74,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               // Order Summary
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(horizontalPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Order Summary Card
                       Card(
+                        elevation: isDesktop ? 4 : 2,
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(horizontalPadding),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Order Summary',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 22 : (isTablet ? 20 : 18),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 12),
+                              SizedBox(height: isDesktop ? 16 : 12),
                               
                               // Cart Items
                               ...cartProvider.items.map((item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
+                                padding: EdgeInsets.only(
+                                  bottom: isDesktop ? 12 : 8,
+                                ),
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 50,
-                                      height: 50,
+                                      width: isDesktop ? 60 : (isTablet ? 55 : 50),
+                                      height: isDesktop ? 60 : (isTablet ? 55 : 50),
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(4),
                                         image: item.image.isNotEmpty
@@ -73,25 +115,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             : null,
                                       ),
                                       child: item.image.isEmpty
-                                          ? const Icon(Icons.image, size: 20)
+                                          ? Icon(
+                                              Icons.image,
+                                              size: isDesktop ? 24 : (isTablet ? 22 : 20),
+                                            )
                                           : null,
                                     ),
-                                    const SizedBox(width: 12),
+                                    SizedBox(width: isDesktop ? 16 : 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             item.title,
-                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            style: TextStyle(
+                                              fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
                                               fontWeight: FontWeight.w600,
                                             ),
-                                            maxLines: 1,
+                                            maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           Text(
                                             'Qty: ${item.quantity}',
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            style: TextStyle(
+                                              fontSize: isDesktop ? 14 : (isTablet ? 13 : 12),
                                               color: Colors.grey[600],
                                             ),
                                           ),
@@ -100,7 +147,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     ),
                                     Text(
                                       '₹${item.totalPrice.toStringAsFixed(2)}',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      style: TextStyle(
+                                        fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -108,45 +156,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                               )),
                               
-                              const Divider(),
+                              SizedBox(height: isDesktop ? 16 : 12),
+                              Divider(height: isDesktop ? 24 : 20),
+                              SizedBox(height: isDesktop ? 16 : 12),
                               
                               // Totals
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Subtotal (${cartProvider.itemCount} items)'),
-                                  Text('₹${cartProvider.totalPrice.toStringAsFixed(2)}'),
-                                ],
+                              _buildPriceRow(
+                                'Subtotal (${cartProvider.itemCount} items)',
+                                '₹${cartProvider.totalPrice.toStringAsFixed(2)}',
+                                isDesktop,
+                                isTablet,
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Shipping'),
-                                  Text('Calculated at checkout'),
-                                ],
+                              SizedBox(height: isDesktop ? 12 : 10),
+                              _buildPriceRow(
+                                'Shipping',
+                                'Calculated at checkout',
+                                isDesktop,
+                                isTablet,
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Tax'),
-                                  Text('Calculated at checkout'),
-                                ],
+                              SizedBox(height: isDesktop ? 12 : 10),
+                              _buildPriceRow(
+                                'Tax',
+                                'Calculated at checkout',
+                                isDesktop,
+                                isTablet,
                               ),
-                              const Divider(),
+                              SizedBox(height: isDesktop ? 16 : 12),
+                              Divider(height: isDesktop ? 24 : 20),
+                              SizedBox(height: isDesktop ? 12 : 8),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Total',
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   Text(
                                     '₹${cartProvider.totalPrice.toStringAsFixed(2)}',
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
                                       fontWeight: FontWeight.bold,
                                       color: AppTheme.primaryColor,
                                     ),
@@ -158,52 +209,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                       
-                      const SizedBox(height: 16),
+                      SizedBox(height: isDesktop ? 20 : 16),
                       
                       // Payment Options Info
                       Card(
+                        elevation: isDesktop ? 4 : 2,
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(horizontalPadding),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Payment Options',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 18 : (isTablet ? 17 : 16),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.credit_card, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 8),
-                                  const Text('Credit/Debit Cards'),
-                                ],
+                              SizedBox(height: isDesktop ? 12 : 8),
+                              _buildPaymentOption(
+                                Icons.credit_card,
+                                'Credit/Debit Cards',
+                                isDesktop,
+                                isTablet,
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.paypal, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 8),
-                                  const Text('PayPal'),
-                                ],
+                              SizedBox(height: isDesktop ? 12 : 10),
+                              _buildPaymentOption(
+                                Icons.paypal,
+                                'PayPal',
+                                isDesktop,
+                                isTablet,
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.apple, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 8),
-                                  const Text('Apple Pay'),
-                                ],
+                              SizedBox(height: isDesktop ? 12 : 10),
+                              _buildPaymentOption(
+                                Icons.apple,
+                                'Apple Pay',
+                                isDesktop,
+                                isTablet,
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.money, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 8),
-                                  const Text('Cash on Delivery'),
-                                ],
+                              SizedBox(height: isDesktop ? 12 : 10),
+                              _buildPaymentOption(
+                                Icons.money,
+                                'Cash on Delivery',
+                                isDesktop,
+                                isTablet,
                               ),
                             ],
                           ),
@@ -211,28 +260,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       
                       if (_error != null) ...[
-                        const SizedBox(height: 16),
+                        SizedBox(height: isDesktop ? 20 : 16),
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.all(isDesktop ? 16 : 12),
                           decoration: BoxDecoration(
                             color: AppTheme.errorColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.errorColor.withOpacity(0.3)),
+                            border: Border.all(
+                              color: AppTheme.errorColor.withOpacity(0.3),
+                            ),
                           ),
                           child: Text(
                             'Error: $_error',
-                            style: TextStyle(color: AppTheme.errorColor),
+                            style: TextStyle(
+                              color: AppTheme.errorColor,
+                              fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                            ),
                           ),
                         ),
                       ],
+                      
+                      // Add bottom padding to ensure content doesn't go behind button and nav bar
+                      // Button height + padding + bottom nav bar height (approximately 80)
+                      SizedBox(height: isDesktop ? 176 : 146),
                     ],
                   ),
                 ),
               ),
               
-              // Checkout Button
+              // Checkout Button - Above Bottom Navigation Bar
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  isDesktop ? 20 : 16,
+                  horizontalPadding,
+                  isDesktop ? 20 : 16,
+                ),
+                // Add margin for bottom nav bar (typically around 80px)
+                margin: EdgeInsets.only(bottom: 80 + bottomPadding),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -243,33 +308,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ],
                 ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : () => _proceedToCheckout(cartProvider),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktop ? 500 : (isTablet ? 400 : double.infinity),
+                    ),
+                    child: SizedBox(
+                      height: isDesktop ? 56 : (isTablet ? 52 : 50),
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : () => _proceedToCheckout(cartProvider),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isDesktop ? 32 : (isTablet ? 28 : 24),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                width: isDesktop ? 24 : 20,
+                                height: isDesktop ? 24 : 20,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  'Proceed to Checkout - ₹${cartProvider.totalPrice.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: isDesktop ? 18 : (isTablet ? 16 : 15),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                
+                              ),
                       ),
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            'Proceed to Checkout - ₹${cartProvider.totalPrice.toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
                   ),
                 ),
               ),
@@ -277,6 +356,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildPriceRow(String label, String value, bool isDesktop, bool isTablet) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentOption(IconData icon, String label, bool isDesktop, bool isTablet) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: AppTheme.primaryColor,
+          size: isDesktop ? 24 : (isTablet ? 22 : 20),
+        ),
+        SizedBox(width: isDesktop ? 12 : 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+          ),
+        ),
+      ],
     );
   }
 

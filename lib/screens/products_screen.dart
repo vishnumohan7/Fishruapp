@@ -122,10 +122,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   children: [
                     // Category Filter
                     Expanded(
+                      flex: 3, // Give more space to category dropdown
                       child: Consumer<ProductProvider>(
                         builder: (context, productProvider, child) {
                           return DropdownButtonFormField<String>(
                             value: _selectedCategory,
+                            isExpanded: true, // ← FIX: Expand to fill width
                             style: TextStyle(
                               fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               color: Colors.black87,
@@ -148,6 +150,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 value: 'All',
                                 child: Text(
                                   'All Categories',
+                                  overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
                                   style: TextStyle(
                                     fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                                   ),
@@ -158,6 +161,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   value: collection['id'].toString(),
                                   child: Text(
                                     collection['title'] ?? 'Category',
+                                    overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
                                     style: TextStyle(
                                       fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                                     ),
@@ -184,8 +188,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     
                     // Sort Filter
                     Expanded(
+                      flex: 2, // Smaller space for sort dropdown
                       child: DropdownButtonFormField<String>(
                         value: _sortBy,
+                        isExpanded: true, // ← FIX: Expand to fill width
                         style: TextStyle(
                           fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                           color: Colors.black87,
@@ -208,6 +214,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'name',
                             child: Text(
                               'Name',
+                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -217,6 +224,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'price_low',
                             child: Text(
                               'Price: Low to High',
+                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -226,6 +234,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'price_high',
                             child: Text(
                               'Price: High to Low',
+                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -235,6 +244,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'newest',
                             child: Text(
                               'Newest',
+                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -373,8 +383,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Widget _buildGridView(ProductProvider productProvider, bool isDesktop, bool isTablet, double horizontalPadding) {
     int crossAxisCount = isDesktop ? 4 : (isTablet ? 3 : 2);
-    double childAspectRatio = isDesktop ? 0.7 : (isTablet ? 0.68 : 0.65);
-    double spacing = isDesktop ? 16 : (isTablet ? 14 : 12);
+    // ← FIX: Increased aspect ratio to give more vertical space for product names
+    double childAspectRatio = isDesktop ? 0.75 : (isTablet ? 0.72 : 0.7);
+    double spacing = isDesktop ? 20 : (isTablet ? 16 : 12); // ← FIX: Better spacing
     
     return GridView.builder(
       padding: EdgeInsets.all(horizontalPadding),
@@ -396,9 +407,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildListView(ProductProvider productProvider, bool isDesktop, bool isTablet, double horizontalPadding) {
-    return ListView.builder(
+    double spacing = isDesktop ? 16 : (isTablet ? 14 : 12); // ← FIX: Better spacing
+    
+    return ListView.separated(
       padding: EdgeInsets.all(horizontalPadding),
       itemCount: productProvider.products.length,
+      separatorBuilder: (context, index) => SizedBox(height: spacing), // ← FIX: Add spacing between items
       itemBuilder: (context, index) {
         final product = productProvider.products[index];
         return ProductCard(
@@ -408,5 +422,4 @@ class _ProductsScreenState extends State<ProductsScreen> {
       },
     );
   }
-
 }

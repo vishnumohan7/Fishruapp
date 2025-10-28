@@ -5,7 +5,7 @@ description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
-# A version number is three numbers separated by dots, like 1.2.43
+# A version number is three numbers separated by dots, like 1.2.432
 # followed by an optional build number separated by a +.
 # Both the version and the builder number may be overridden in flutter
 # build by specifying --build-name and --build-number, respectively.
@@ -86,8 +86,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Assets
- 
+  assets:
+    - .env
+    # - assets/fonts/
+    # - assets/images/
+    # - assets/icons/ 
+
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

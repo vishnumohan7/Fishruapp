@@ -214,19 +214,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   const SizedBox(height: 32),
                
-                  // Save Button
-                  SizedBox(
-                    width: double.infinity,
+                  // Save Button - Standard Size
+                  Center(
                     child: ElevatedButton(
                       onPressed: userProvider.isLoading ? null : _saveProfile,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFF00ACC1),
                         foregroundColor: Colors.white,
-                        
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 48,
+                          vertical: 16,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        minimumSize: const Size(200, 50), // Standard minimum size
                       ),
                       child: userProvider.isLoading
                           ? const SizedBox(
@@ -248,16 +250,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Change Password Button
-                  SizedBox(
-                    width: double.infinity,
+                  // Change Password Button - Standard Size
+                  Center(
                     child: OutlinedButton(
                       onPressed: _changePassword,
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 48,
+                          vertical: 16,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        minimumSize: const Size(200, 50), // Standard minimum size
                       ),
                       child: const Text(
                         'Change Password',
@@ -354,14 +359,18 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Change Password'),
-        backgroundColor: Colors.indigo[600],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Change Password', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Form(
         key: _formKey,
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,17 +468,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               ),
               const SizedBox(height: 32),
               
-              SizedBox(
-                width: double.infinity,
+              // Change Password Button - Standard Size
+              Center(
                 child: ElevatedButton(
                   onPressed: _changePassword,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo[600],
+                    backgroundColor: Color(0xFF00ACC1),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 48,
+                      vertical: 16,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
+                    minimumSize: const Size(200, 50), // Standard minimum size
                   ),
                   child: const Text(
                     'Change Password',

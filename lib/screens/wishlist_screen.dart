@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
-import '../models/product.dart';
 import '../widgets/product_card.dart';
-import 'product_detail_screen.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({super.key});
@@ -23,10 +21,16 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Wishlist'),
-        backgroundColor: Colors.pink[600],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('My Wishlist', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -34,7 +38,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
             builder: (context, wishlistProvider, child) {
               if (wishlistProvider.wishlistItems.isNotEmpty) {
                 return IconButton(
-                  icon: const Icon(Icons.delete_sweep),
+                  icon: const Icon(Icons.delete_sweep, color: Colors.white),
                   onPressed: () {
                     _showClearWishlistDialog(context);
                   },
@@ -87,7 +91,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pink[600],
+                      backgroundColor: const Color(0xFF00ACC1),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
@@ -106,7 +110,12 @@ class _WishlistScreenState extends State<WishlistScreen> {
               await wishlistProvider.loadWishlist();
             },
             child: GridView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                16 + 80 + bottomPadding, // Add padding for bottom nav bar
+              ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 0.7,
