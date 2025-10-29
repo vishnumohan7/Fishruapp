@@ -37,13 +37,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Orders'),
+          leading: IconButton(
+      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+      onPressed: () => Navigator.pop(context),
+    ),
+        title: const Text('My Orders',style: TextStyle(color:Colors.white),),
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh,color:Colors.white,),
             onPressed: () async {
               // Manual refresh for immediate status updates
               final userProvider = context.read<UserProvider>();

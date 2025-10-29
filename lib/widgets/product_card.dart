@@ -46,7 +46,7 @@ class ProductCard extends StatelessWidget {
   Widget _buildGridCard(BuildContext context) {
     return Container(
       width: width ?? 160,
-      height: height ??280,
+      height: height ?? 280,
       margin: margin ?? const EdgeInsets.only(right: 12),
       child: InkWell(
         onTap: onTap ?? () => _navigateToProductDetail(context),
@@ -228,7 +228,6 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  // ✅ FIXED: Removed yellow debug container and adjusted layout
   Widget _buildHorizontalCard(BuildContext context) {
     return Container(
       width: width ?? 160,
@@ -477,30 +476,59 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 3, child: _buildProductImage(context)),
+            // Image section - takes 60% of card height
             Expanded(
-              flex: 2,
+              flex: 6,
+              child: _buildProductImage(context),
+            ),
+            // Content section - takes 40% of card height
+            Expanded(
+              flex: 4,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildProductTitle(context),
-                    const SizedBox(height: 4),
+                    // Title - flexible to avoid overflow
+                    Flexible(
+                      child: Text(
+                        product.title,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    // Vendor name
                     Text(
                       product.vendor,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const Spacer(),
+                    // Price and wishlist button row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          '₹${product.price}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                        Flexible(
+                          child: Text(
+                            '₹${product.price}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (showWishlistButton)
@@ -524,7 +552,10 @@ class ProductCard extends StatelessWidget {
                             },
                             iconSize: 20,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
                           ),
                       ],
                     ),
@@ -576,7 +607,6 @@ class ProductCard extends StatelessWidget {
       children: [
         Text(
           '₹${product.price}',
-          
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: AppTheme.primaryColor,
             fontWeight: FontWeight.bold,

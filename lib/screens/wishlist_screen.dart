@@ -21,8 +21,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -105,17 +103,16 @@ class _WishlistScreenState extends State<WishlistScreen> {
             );
           }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              await wishlistProvider.loadWishlist();
-            },
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 80 + bottomPadding),
+          return SafeArea(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await wishlistProvider.loadWishlist();
+              },
               child: GridView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.7,
+                  childAspectRatio: 0.6, // Adjust to fit card height
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
