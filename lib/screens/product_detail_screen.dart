@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/app_providers.dart';
 import '../utils/app_theme.dart';
 import '../models/product.dart';
@@ -26,6 +27,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _selectedVariant = widget.product.defaultVariant;
+  }
+
+  void _shareProduct() {
+    final product = widget.product;
+    
+    // Build share message
+    final String shareText = '''
+🛍️ Check out this amazing product!
+
+${product.title}
+
+💰 Price: ₹${_selectedVariant?.price ?? product.price}
+
+📦 ${product.available ? 'In Stock' : 'Out of Stock'}
+
+${product.description.isNotEmpty ? '📝 ${product.description.length > 150 ? '${product.description.substring(0, 150)}...' : product.description}' : ''}
+
+🏪 Vendor: ${product.vendor}
+
+Shop now! 🛒
+''';
+
+    // Share the text
+    Share.share(
+      shareText,
+      subject: '${product.title} - Great Deal!',
+    );
   }
 
   @override
@@ -73,9 +101,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () {
-              // TODO: Implement share
-            },
+            onPressed: _shareProduct,
+            tooltip: 'Share Product',
           ),
         ],
       ),
@@ -428,7 +455,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: ElevatedButton(
                       onPressed: widget.product.available
                           ? () {
-                              // TODO: Implement buy now
+                              // Add to cart and navigate to checkout
+                              final cartProvider = context.read<CartProvider>();
+                              cartProvider.addToCart(
+                                widget.product,
+                                quantity: _quantity,
+                                selectedOptions: _selectedOptions,
+                                variant: _selectedVariant,
+                              );
+                              Navigator.pushNamed(context, '/checkout');
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
