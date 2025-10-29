@@ -350,7 +350,7 @@ class CartScreen extends StatelessWidget {
                 ),
               );
             },
-            child: const Text('Remove'),
+            child: const Text('Remove',style: TextStyle(color:Color.fromARGB(255, 247, 16, 16)),),
           ),
         ],
       ),

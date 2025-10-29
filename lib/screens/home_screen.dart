@@ -162,7 +162,12 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   IconButton(
                     icon: const Icon(Icons.shopping_cart_outlined),
                     onPressed: () {
-                      // Navigate to cart
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CartScreen(),
+                        ),
+                      );
                     },
                   ),
                   if (cartProvider.itemCount > 0)
