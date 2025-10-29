@@ -42,7 +42,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       onPressed: () => Navigator.pop(context),
     ),
         title: const Text('My Orders',style: TextStyle(color:Colors.white),),
-        backgroundColor: Colors.blue[600],
+        backgroundColor:  Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -99,7 +99,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[600],
+                      backgroundColor: Color(0xFF00ACC1),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
