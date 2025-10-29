@@ -68,22 +68,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          Consumer<UserProvider>(
-            builder: (context, userProvider, child) {
-              return TextButton(
-                onPressed: userProvider.isLoading ? null : _saveProfile,
-                child: Text(
-                  'Save',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+        // actions: [
+        //   Consumer<UserProvider>(
+        //     builder: (context, userProvider, child) {
+        //       return TextButton(
+        //         onPressed: userProvider.isLoading ? null : _saveProfile,
+        //         child: Text(
+        //           'Save',
+        //           style: TextStyle(
+        //             color: Colors.white,
+        //             fontWeight: FontWeight.bold,
+        //           ),
+        //         ),
+        //       );
+        //     },
+        //   ),
+        // ],
       ),
       body: Consumer<UserProvider>(
         builder: (context, userProvider, child) {

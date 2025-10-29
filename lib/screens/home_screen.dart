@@ -389,7 +389,12 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                       ),
                       TextButton(
                         onPressed: () {
-                          // TODO: Navigate to all products
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProductsScreen(),
+                            ),
+                          );
                         },
                         child: const Text('View All'),
                       ),

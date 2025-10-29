@@ -31,15 +31,15 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.black87),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              // TODO: Implement settings
-            },
-          ),
-          if (isTablet) const SizedBox(width: 8),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.settings_outlined),
+        //     onPressed: () {
+        //       // TODO: Implement settings
+        //     },
+        //   ),
+        //   if (isTablet) const SizedBox(width: 8),
+        // ],
       ),
       body: Consumer<UserProvider>(
         builder: (context, userProvider, child) {
@@ -500,27 +500,28 @@ class ProfileScreen extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () {
-          _showLogoutDialog(context, userProvider);
-        },
-        icon: Icon(Icons.logout, size: isTablet ? 22 : 20),
-        label: Text(
-          'Logout',
-          style: TextStyle(
-            fontSize: isTablet ? 17 : 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.errorColor,
-          side: BorderSide(color: AppTheme.errorColor, width: 1.5),
-          padding: EdgeInsets.symmetric(vertical: isTablet ? 18 : 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
+  onPressed: () => _showLogoutDialog(context, userProvider),
+  icon: Icon(Icons.logout, size: isTablet ? 22 : 20),
+  label: Text(
+    'Logout',
+    style: TextStyle(
+      fontSize: isTablet ? 17 : 15,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+  style: OutlinedButton.styleFrom(
+    foregroundColor: AppTheme.errorColor,
+    side: BorderSide(color: AppTheme.errorColor, width: 1.5),
+    padding: EdgeInsets.symmetric(
+      vertical: isTablet ? 12 : 10,
+      horizontal: isTablet ? 16 : 12,
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+  ),
+));
+    
   }
 
   void _showLogoutDialog(BuildContext context, UserProvider userProvider) {
@@ -533,7 +534,7 @@ class ProfileScreen extends StatelessWidget {
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
-          TextButton(
+          TextButton( 
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),

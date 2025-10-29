@@ -1,3 +1,4 @@
+import 'package:fishru/screens/products_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
@@ -86,7 +87,12 @@ class CartScreen extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: () {
               // Navigate to products
-              DefaultTabController.of(context)?.animateTo(1);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProductsScreen(),
+                ),
+              );
             },
             icon: const Icon(Icons.shopping_bag),
             label: const Text('Start Shopping'),
