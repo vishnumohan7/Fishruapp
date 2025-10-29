@@ -23,15 +23,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
-        backgroundColor: Colors.purple[600],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Notifications', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white), // Makes three-dot icon white
         actions: [
           Consumer<NotificationProvider>(
             builder: (context, notificationProvider, child) {
               if (notificationProvider.notifications.isNotEmpty) {
                 return PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white), // Explicitly white icon
+                  color: Colors.white,
                   onSelected: (value) {
                     if (value == 'mark_all_read') {
                       notificationProvider.markAllAsRead();

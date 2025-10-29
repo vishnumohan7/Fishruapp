@@ -1,3 +1,5 @@
+import 'package:fishru/screens/cart_screen.dart';
+import 'package:fishru/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
@@ -96,7 +98,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomeScreen()
+                        ));
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFF00ACC1),

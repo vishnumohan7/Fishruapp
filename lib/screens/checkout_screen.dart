@@ -73,8 +73,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   horizontalPadding,
                   horizontalPadding,
                   horizontalPadding,
-                  // Bottom padding = button container height + nav bar + safe area
-                  (isDesktop ? 96 : (isTablet ? 88 : 82)) + 80 + bottomPadding,
+                  // Bottom padding = button container height + safe area
+                  (isDesktop ? 80 : (isTablet ? 74 : 70)) + bottomPadding,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,15 +284,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               
-              // Fixed Checkout Button - Positioned above bottom nav
+              // Fixed Checkout Button - Positioned at bottom, overlapping nav bar
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 80 + bottomPadding, // Position above bottom nav bar
+                bottom: 0, // Position at the very bottom, overlapping nav bar
                 child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: horizontalPadding,
-                    vertical: isDesktop ? 20 : 16,
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    isDesktop ? 12 : 10,
+                    horizontalPadding,
+                    bottomPadding + (isDesktop ? 12 : 10),
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
