@@ -14,6 +14,7 @@ import '../constants/app_constants.dart';
 export 'order_provider.dart';
 export 'wishlist_provider.dart';
 export 'notification_provider.dart';
+import 'wishlist_provider.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
@@ -379,21 +380,56 @@ class UserProvider extends ChangeNotifier {
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     try {
-      // Note: This needs to be implemented with your authentication system
-      // For now, we'll simulate a login
-      await Future.delayed(const Duration(seconds: 2));
+      // Validate email format
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+        _error = 'Please enter a valid email address';
+        return false;
+      }
+
+      // Validate password
+      if (password.isEmpty) {
+        _error = 'Please enter your password';
+        return false;
+      }
+
+      print('Attempting to login with email: $email');
       
-      // Simulate successful login
+      // Use Shopify Storefront API to authenticate with email and password
+      final graphqlService = ShopifyGraphQLService();
+      final loginResult = await graphqlService.loginCustomer(email, password);
+      
+      if (loginResult == null) {
+        _error = 'Unable to connect to login service. Please try again later.';
+        return false;
+      }
+      
+      if (loginResult.containsKey('error')) {
+        _error = loginResult['error'];
+        return false;
+      }
+      
+      // Get access token
+      final accessToken = loginResult['accessToken'] as String;
+      
+      // Fetch customer details using the access token
+      final customerData = await graphqlService.getCustomer(accessToken);
+      
+      if (customerData == null) {
+        _error = 'Failed to retrieve customer information.';
+        return false;
+      }
+      
+      // Convert to User object
       _user = User(
-        id: '1',
-        email: email,
-        firstName: null, // No name set during signup
-        lastName: null,   // No name set during signup
-        phone: '',
+        id: customerData['id']?.toString() ?? '',
+        email: customerData['email'] ?? email,
+        firstName: customerData['firstName'],
+        lastName: customerData['lastName'],
+        phone: customerData['phone'] ?? '',
         acceptsMarketing: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        ordersCount: 0,
+        createdAt: DateTime.parse(customerData['createdAt'] ?? DateTime.now().toIso8601String()),
+        updatedAt: DateTime.parse(customerData['updatedAt'] ?? DateTime.now().toIso8601String()),
+        ordersCount: (customerData['numberOfOrders'] is int) ? customerData['numberOfOrders'] : int.tryParse(customerData['numberOfOrders']?.toString() ?? '0') ?? 0,
         state: '',
         totalSpent: '0.00',
         lastOrderId: '',
@@ -406,17 +442,19 @@ class UserProvider extends ChangeNotifier {
         currency: 'USD',
         phoneVerifiedAt: '',
         taxExemptions: '',
-        adminGraphqlApiId: '',
-        address: '',
-        city: '',
-        zipCode: '',
+        adminGraphqlApiId: customerData['id']?.toString() ?? '',
+        address: customerData['defaultAddress']?['address1'],
+        city: customerData['defaultAddress']?['city'],
+        zipCode: customerData['defaultAddress']?['zip'],
         profileImage: null,
       );
       
+      print('Login successful: ${_user?.email}');
       _error = null;
       return true;
     } catch (e) {
-      _error = e.toString();
+      print('Login error: $e');
+      _error = 'Login failed: $e';
       return false;
     } finally {
       _setLoading(false);

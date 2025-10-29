@@ -285,7 +285,27 @@ class ShopifyService {
       }
     } catch (e) {
       print('Error fetching customer: $e');
-      throw Exception('Failed to fetch customer: $e');
+        throw Exception('Failed to fetch customer: $e');
+    }
+  }
+
+  Future<List<User>> searchCustomers(String email) async {
+    _ensureInitialized();
+    try {
+      final response = await _dio.get(
+        '/customers/search.json',
+        queryParameters: {'query': 'email:$email'},
+      );
+
+      if (response.statusCode == 200 && response.data['customers'] != null) {
+        final List<dynamic> customersJson = response.data['customers'];
+        return customersJson.map((json) => User.fromJson(json)).toList();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      print('Error searching customers: $e');
+      return [];
     }
   }
 

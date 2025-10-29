@@ -262,6 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
 
       final success = await userProvider.login(
         _emailController.text.trim(),
@@ -269,6 +270,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (success && mounted) {
+        // Set user ID for wishlist after successful login
+        if (userProvider.user != null) {
+          await wishlistProvider.setUserId(userProvider.user!.id);
+        }
+        
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),

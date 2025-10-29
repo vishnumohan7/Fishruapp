@@ -24,6 +24,110 @@ class ShopifyGraphQLService {
 
   GraphQLClient get client => _client;
 
+  // Customer Authentication Methods
+  Future<Map<String, dynamic>?> loginCustomer(String email, String password) async {
+    try {
+      print('Attempting GraphQL login for: $email');
+      print('GraphQL URL: ${AppConstants.graphqlUrl}');
+      print('Storefront Token: ${AppConstants.shopifyStorefrontAccessToken.substring(0, 10)}...');
+      
+      final result = await _client.mutate(
+        MutationOptions(
+          document: gql(customerAccessTokenCreateMutation),
+          variables: {
+            'input': {
+              'email': email,
+              'password': password,
+            },
+          },
+        ),
+      );
+
+      print('GraphQL result: ${result.data}');
+      print('Has exception: ${result.hasException}');
+      if (result.hasException) {
+        print('Login exception details: ${result.exception}');
+        print('Exception graphql errors: ${result.exception?.graphqlErrors}');
+        return {'error': 'Connection error. Please check your internet and try again.'};
+      }
+
+      final errors = result.data?['customerAccessTokenCreate']?['customerUserErrors'] as List?;
+      if (errors != null && errors.isNotEmpty) {
+        print('Customer login errors: $errors');
+        final errorMsg = errors.first['message'] as String?;
+        final errorField = errors.first['field'] as List?;
+        
+        print('Error message: $errorMsg');
+        print('Error field: $errorField');
+        
+        // Map Shopify error messages to user-friendly messages
+        String friendlyMessage = errorMsg ?? 'Login failed';
+        
+        final lowerErrorMsg = errorMsg?.toLowerCase() ?? '';
+        final hasUnidentified = lowerErrorMsg.contains('unidentified');
+        final hasCustomer = lowerErrorMsg.contains('customer');
+        final hasIncorrect = lowerErrorMsg.contains('incorrect');
+        final hasPassword = lowerErrorMsg.contains('password');
+        final hasEmail = lowerErrorMsg.contains('email');
+        
+        // Shopify returns "unidentified customer" for wrong password
+        // Check if both "unidentified" and "customer" are present, which means wrong password
+        if (hasUnidentified && hasCustomer) {
+          friendlyMessage = 'Incorrect password. Please try again.';
+        } else if (hasIncorrect || hasPassword) {
+          friendlyMessage = 'Incorrect password. Please try again.';
+        } else if (hasUnidentified) {
+          friendlyMessage = 'No account found with this email address. Please sign up.';
+        } else if (hasEmail) {
+          friendlyMessage = 'Invalid email address. Please check and try again.';
+        }
+        
+        return {'error': friendlyMessage};
+      }
+
+      final accessTokenData = result.data?['customerAccessTokenCreate']?['customerAccessToken'];
+      print('Access token data: $accessTokenData');
+      
+      if (accessTokenData != null) {
+        print('Login successful! Access token received.');
+        return {
+          'accessToken': accessTokenData['accessToken'],
+          'expiresAt': accessTokenData['expiresAt'],
+        };
+      }
+
+      print('No access token returned');
+      return null;
+    } catch (e) {
+      print('Error logging in customer: $e');
+      print('Stack trace: ${e.toString()}');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCustomer(String accessToken) async {
+    try {
+      final result = await _client.query(
+        QueryOptions(
+          document: gql(getCustomerQuery),
+          variables: {
+            'customerAccessToken': accessToken,
+          },
+        ),
+      );
+
+      if (result.hasException) {
+        print('Get customer error: ${result.exception}');
+        return null;
+      }
+
+      return result.data?['customer'] as Map<String, dynamic>?;
+    } catch (e) {
+      print('Error getting customer: $e');
+      return null;
+    }
+  }
+
   // GraphQL Queries
   static const String getProductsQuery = '''
     query getProducts(\$first: Int!, \$after: String, \$query: String) {
@@ -558,6 +662,46 @@ class ShopifyGraphQLService {
               }
             }
           }
+        }
+      }
+    }
+  ''';
+
+  // Customer Authentication Mutations
+  static const String customerAccessTokenCreateMutation = '''
+    mutation customerAccessTokenCreate(\$input: CustomerAccessTokenCreateInput!) {
+      customerAccessTokenCreate(input: \$input) {
+        customerAccessToken {
+          accessToken
+          expiresAt
+        }
+        customerUserErrors {
+          field
+          message
+        }
+      }
+    }
+  ''';
+
+  static const String getCustomerQuery = '''
+    query getCustomer(\$customerAccessToken: String!) {
+      customer(customerAccessToken: \$customerAccessToken) {
+        id
+        email
+        firstName
+        lastName
+        phone
+        createdAt
+        updatedAt
+        numberOfOrders
+        defaultAddress {
+          id
+          address1
+          address2
+          city
+          province
+          zip
+          country
         }
       }
     }

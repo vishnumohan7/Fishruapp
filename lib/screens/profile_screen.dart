@@ -538,15 +538,21 @@ class ProfileScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              // Clear wishlist before logout
+              final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
+              await wishlistProvider.clearUserId();
+              
               userProvider.logout();
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LoginScreen(),
-                ),
-              );
+              if (context.mounted) {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
+              }
             },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.errorColor,
