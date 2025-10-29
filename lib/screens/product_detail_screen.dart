@@ -32,27 +32,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void _shareProduct() {
     final product = widget.product;
     
-    // Build share message
+    // Build product URL - Replace with your actual product URL structure
+    final String productUrl = 'https://yourstore.com/products/${product.id}'; // TODO: Replace with your actual URL
+    
+    // Build share message optimized for fish delivery app
     final String shareText = '''
-🛍️ Check out this amazing product!
+🐟 Fresh ${product.title}
 
-${product.title}
+💰 ₹${_selectedVariant?.price ?? product.price} ${product.available ? '✅ Available Now' : '❌ Out of Stock'}
 
-💰 Price: ₹${_selectedVariant?.price ?? product.price}
+${product.description.isNotEmpty ? '${product.description.length > 120 ? '${product.description.substring(0, 120)}...' : product.description}\n' : ''}
+🏪 From: ${product.vendor}
 
-📦 ${product.available ? 'In Stock' : 'Out of Stock'}
+🔗 Order Now: $productUrl
 
-${product.description.isNotEmpty ? '📝 ${product.description.length > 150 ? '${product.description.substring(0, 150)}...' : product.description}' : ''}
-
-🏪 Vendor: ${product.vendor}
-
-Shop now! 🛒
+Get fresh seafood delivered to your doorstep! 🚚
 ''';
 
     // Share the text
     Share.share(
       shareText,
-      subject: '${product.title} - Great Deal!',
+      subject: 'Fresh ${product.title} - Order Now!',
     );
   }
 

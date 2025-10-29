@@ -14,7 +14,6 @@ import '../constants/app_constants.dart';
 export 'order_provider.dart';
 export 'wishlist_provider.dart';
 export 'notification_provider.dart';
-import 'wishlist_provider.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];

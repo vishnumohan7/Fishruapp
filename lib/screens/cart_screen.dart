@@ -108,59 +108,73 @@ class CartScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: item.image.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(item.image),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-              ),
-              child: item.image.isEmpty
-                  ? const Icon(
-                      Icons.image,
-                      size: 40,
-                      color: Colors.grey,
-                    )
-                  : null,
-            ),
-            
-            const SizedBox(width: 12),
-            
-            // Product Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+            // Product Image with Name and Price below
+            Column(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    image: item.image.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(item.image),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: item.image.isEmpty
+                      ? const Icon(
+                          Icons.image,
+                          size: 40,
+                          color: Colors.grey,
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: 80,
+                  child: Text(
                     item.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: const TextStyle(
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '\$${item.price}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '\$${item.price}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(width: 12),
+            
+            // Product Options (if any)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   if (item.selectedOptions.isNotEmpty) ...[
-                    const SizedBox(height: 4),
                     ...item.selectedOptions.entries.map(
-                      (entry) => Text(
-                        '${entry.key}: ${entry.value}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${entry.key}: ${entry.value}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
                         ),
                       ),
                     ),
@@ -180,10 +194,12 @@ class CartScreen extends StatelessWidget {
                       onPressed: () {
                         cartProvider.updateQuantity(item.id, item.quantity - 1);
                       },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                     Container(
                       width: 40,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                       child: Text(
                         '${item.quantity}',
                         textAlign: TextAlign.center,
@@ -195,9 +211,12 @@ class CartScreen extends StatelessWidget {
                       onPressed: () {
                         cartProvider.updateQuantity(item.id, item.quantity + 1);
                       },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
+                const SizedBox(height: 4),
                 Text(
                   '\$${item.totalPrice.toStringAsFixed(2)}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -208,6 +227,8 @@ class CartScreen extends StatelessWidget {
               ],
             ),
             
+            const SizedBox(width: 8),
+            
             // Remove Button
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -215,6 +236,8 @@ class CartScreen extends StatelessWidget {
               onPressed: () {
                 _showRemoveItemDialog(context, item, cartProvider);
               },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
           ],
         ),
