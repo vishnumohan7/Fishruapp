@@ -21,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _wishlistUserSynced = false;
 
   final List<Widget> _screens = [
     const HomeTabScreen(),
@@ -33,8 +34,34 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        // Trigger auto login once when app starts
+        if (!userProvider.hasAttemptedAutoLogin) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.read<UserProvider>().tryAutoLogin();
+          });
+        }
+
+        if (!userProvider.isLoggedIn && !userProvider.hasAttemptedAutoLogin) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
         if (!userProvider.isLoggedIn) {
           return const LoginScreen();
+        }
+
+        // Ensure wishlist is tied to the logged-in user once per session
+        if (!_wishlistUserSynced && userProvider.user != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            try {
+              await context.read<WishlistProvider>().setUserId(userProvider.user!.id);
+            } catch (_) {}
+            if (mounted) {
+              setState(() {
+                _wishlistUserSynced = true;
+              });
+            }
+          });
         }
 
         return Scaffold(

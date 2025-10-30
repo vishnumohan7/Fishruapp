@@ -40,8 +40,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
+      body: Consumer<UserProvider>(
+        builder: (context, userProvider, _) {
+          return Stack(
+            children: [
+              SafeArea(
+                child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -293,7 +297,20 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-        ),
+                ),
+              ),
+              if (userProvider.isLoading)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withOpacity(0.2),
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
