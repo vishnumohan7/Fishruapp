@@ -202,12 +202,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   children: [
                     // Category Filter
                     Expanded(
-                      flex: 3, // Give more space to category dropdown
+                      flex: 3,
                       child: Consumer<ProductProvider>(
                         builder: (context, productProvider, child) {
                           return DropdownButtonFormField<String>(
                             value: _selectedCategory,
-                            isExpanded: true, // ← FIX: Expand to fill width
+                            isExpanded: true,
                             style: TextStyle(
                               fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               color: Colors.black87,
@@ -230,7 +230,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 value: 'All',
                                 child: Text(
                                   'All Categories',
-                                  overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                                   ),
@@ -238,11 +238,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               ),
                               ...productProvider.collections.map(
                                 (collection) => DropdownMenuItem(
-                                  // Use numericId or handle for REST API compatibility
                                   value: (collection['numericId'] ?? collection['handle'] ?? collection['id']).toString(),
                                   child: Text(
                                     collection['title'] ?? 'Category',
-                                    overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                                     ),
@@ -256,12 +255,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               });
                               if (value == null || value == 'All') {
                                 productProvider.loadProducts().then((_) {
-                                  // Reapply sorting after category change
                                   productProvider.sortProducts(_sortBy);
                                 });
                               } else {
                                 productProvider.loadProducts(collectionId: value).then((_) {
-                                  // Reapply sorting after category change
                                   productProvider.sortProducts(_sortBy);
                                 });
                               }
@@ -275,10 +272,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     
                     // Sort Filter
                     Expanded(
-                      flex: 2, // Smaller space for sort dropdown
+                      flex: 2,
                       child: DropdownButtonFormField<String>(
                         value: _sortBy,
-                        isExpanded: true, // ← FIX: Expand to fill width
+                        isExpanded: true,
                         style: TextStyle(
                           fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                           color: Colors.black87,
@@ -301,7 +298,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'name',
                             child: Text(
                               'Name',
-                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -311,7 +308,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'price_low',
                             child: Text(
                               'Price: Low to High',
-                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -321,7 +318,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'price_high',
                             child: Text(
                               'Price: High to Low',
-                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -331,7 +328,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             value: 'newest',
                             child: Text(
                               'Newest',
-                              overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
                               ),
@@ -342,7 +339,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           setState(() {
                             _sortBy = value ?? 'name';
                           });
-                          // Apply sorting
                           if (value != null) {
                             context.read<ProductProvider>().sortProducts(value);
                           }
@@ -458,7 +454,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     await productProvider.loadProducts();
-                    // Reapply sorting after refresh
                     productProvider.sortProducts(_sortBy);
                   },
                   child: _isGridView 
@@ -475,9 +470,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Widget _buildGridView(ProductProvider productProvider, bool isDesktop, bool isTablet, double horizontalPadding) {
     int crossAxisCount = isDesktop ? 4 : (isTablet ? 3 : 2);
-    // ← FIX: Increased aspect ratio to give more vertical space for product names
-    double childAspectRatio = isDesktop ? 0.75 : (isTablet ? 0.72 : 0.7);
-    double spacing = isDesktop ? 20 : (isTablet ? 16 : 12); // ← FIX: Better spacing
+    // Increased aspect ratio significantly to give much more vertical space
+    double childAspectRatio = isDesktop ? 0.65 : (isTablet ? 0.62 : 0.58);
+    double spacing = isDesktop ? 20 : (isTablet ? 16 : 12);
     
     return GridView.builder(
       padding: EdgeInsets.all(horizontalPadding),
@@ -499,12 +494,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildListView(ProductProvider productProvider, bool isDesktop, bool isTablet, double horizontalPadding) {
-    double spacing = isDesktop ? 16 : (isTablet ? 14 : 12); // ← FIX: Better spacing
+    double spacing = isDesktop ? 16 : (isTablet ? 14 : 12);
     
     return ListView.separated(
       padding: EdgeInsets.all(horizontalPadding),
       itemCount: productProvider.products.length,
-      separatorBuilder: (context, index) => SizedBox(height: spacing), // ← FIX: Add spacing between items
+      separatorBuilder: (context, index) => SizedBox(height: spacing),
       itemBuilder: (context, index) {
         final product = productProvider.products[index];
         return ProductCard(
