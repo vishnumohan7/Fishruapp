@@ -17,6 +17,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   String _selectedCategory = 'All';
   String _sortBy = 'name';
   bool _isGridView = true;
+  bool _showLoadingOverlay = false;
 
   @override
   void initState() {
@@ -121,8 +122,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
+          Column(
+            children: [
           // Search and Filter Bar
           Padding(
             padding: EdgeInsets.all(horizontalPadding),
@@ -251,20 +254,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               ),
                             ],
                             onChanged: (value) {
-                              setState(() {
-                                _selectedCategory = value ?? 'All';
-                              });
-                              if (value == null || value == 'All') {
-                                productProvider.loadProducts().then((_) {
-                                  // Reapply sorting after category change
-                                  productProvider.sortProducts(_sortBy);
-                                });
-                              } else {
-                                productProvider.loadProducts(collectionId: value).then((_) {
-                                  // Reapply sorting after category change
-                                  productProvider.sortProducts(_sortBy);
-                                });
-                              }
+                              _handleCategoryChange(value, productProvider);
                             },
                           );
                         },
@@ -468,6 +458,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
               },
             ),
           ),
+          ],
+          ),
+          if (_showLoadingOverlay)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.15),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
         ],
       ),
     );
@@ -513,5 +512,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _handleCategoryChange(String? value, ProductProvider productProvider) async {
+    setState(() {
+      _selectedCategory = value ?? 'All';
+      _showLoadingOverlay = true;
+    });
+    try {
+      if (value == null || value == 'All') {
+        await productProvider.loadProducts();
+      } else {
+        await productProvider.loadProducts(collectionId: value);
+      }
+      productProvider.sortProducts(_sortBy);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _showLoadingOverlay = false;
+        });
+      }
+    }
   }
 }

@@ -22,6 +22,12 @@ class WishlistProvider with ChangeNotifier {
   Future<void> setUserId(String userId) async {
     print('Setting wishlist user ID: $userId');
     _currentUserId = userId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_wishlist_user_id', userId);
+    } catch (e) {
+      print('Failed to persist current_wishlist_user_id: $e');
+    }
     await loadWishlist();
     print('Wishlist loaded. Items count: ${_wishlistItems.length}');
   }
@@ -31,6 +37,10 @@ class WishlistProvider with ChangeNotifier {
     print('Clearing wishlist for user: $_currentUserId');
     _currentUserId = null;
     _wishlistItems.clear();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('current_wishlist_user_id');
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -40,6 +50,19 @@ class WishlistProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Attempt to restore last user id if not set yet
+      if (_currentUserId == null || _currentUserId!.isEmpty) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final savedUserId = prefs.getString('current_wishlist_user_id');
+          if (savedUserId != null && savedUserId.isNotEmpty) {
+            _currentUserId = savedUserId;
+          }
+        } catch (e) {
+          print('Failed to read current_wishlist_user_id: $e');
+        }
+      }
+
       if (_currentUserId == null || _currentUserId!.isEmpty) {
         _wishlistItems = [];
         _isLoading = false;

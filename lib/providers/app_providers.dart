@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
@@ -511,12 +512,16 @@ class UserProvider extends ChangeNotifier {
   User? _user;
   bool _isLoading = false;
   String? _error;
+  String? _accessToken;
+  DateTime? _tokenExpiry;
+  bool _hasAttemptedAutoLogin = false;
 
   User? get user => _user;
   User? get currentUser => _user; // Alias for compatibility
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isLoggedIn => _user != null;
+  bool get hasAttemptedAutoLogin => _hasAttemptedAutoLogin;
 
   Future<bool> login(String email, String password) async {
     _setLoading(true);
@@ -551,6 +556,9 @@ class UserProvider extends ChangeNotifier {
       
       // Get access token
       final accessToken = loginResult['accessToken'] as String;
+      final expiresAtStr = loginResult['expiresAt'] as String?;
+      _accessToken = accessToken;
+      _tokenExpiry = expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null;
       
       // Fetch customer details using the access token
       final customerData = await graphqlService.getCustomer(accessToken);
@@ -591,6 +599,17 @@ class UserProvider extends ChangeNotifier {
       );
       
       print('Login successful: ${_user?.email}');
+      // Persist token locally for auto-login
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('customerAccessToken', accessToken);
+        if (_tokenExpiry != null) {
+          await prefs.setString('customerAccessTokenExpiresAt', _tokenExpiry!.toIso8601String());
+        }
+      } catch (e) {
+        // Non-fatal: if persistence fails, just proceed
+        print('Warning: Failed to persist access token: $e');
+      }
       _error = null;
       return true;
     } catch (e) {
@@ -598,6 +617,78 @@ class UserProvider extends ChangeNotifier {
       _error = 'Login failed: $e';
       return false;
     } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> tryAutoLogin() async {
+    if (_user != null || _hasAttemptedAutoLogin) {
+      _hasAttemptedAutoLogin = true;
+      return;
+    }
+    _setLoading(true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString('customerAccessToken');
+      final expiresAtStr = prefs.getString('customerAccessTokenExpiresAt');
+      if (savedToken == null || savedToken.isEmpty) {
+        return;
+      }
+      DateTime? expiresAt;
+      if (expiresAtStr != null && expiresAtStr.isNotEmpty) {
+        expiresAt = DateTime.tryParse(expiresAtStr);
+      }
+      if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
+        // Token expired; clear it
+        await prefs.remove('customerAccessToken');
+        await prefs.remove('customerAccessTokenExpiresAt');
+        return;
+      }
+
+      final graphqlService = ShopifyGraphQLService();
+      final customerData = await graphqlService.getCustomer(savedToken);
+      if (customerData == null) {
+        // Invalid token; clear
+        await prefs.remove('customerAccessToken');
+        await prefs.remove('customerAccessTokenExpiresAt');
+        return;
+      }
+
+      _accessToken = savedToken;
+      _tokenExpiry = expiresAt;
+      _user = User(
+        id: customerData['id']?.toString() ?? '',
+        email: customerData['email'] ?? '',
+        firstName: customerData['firstName'],
+        lastName: customerData['lastName'],
+        phone: customerData['phone'] ?? '',
+        acceptsMarketing: false,
+        createdAt: DateTime.parse(customerData['createdAt'] ?? DateTime.now().toIso8601String()),
+        updatedAt: DateTime.parse(customerData['updatedAt'] ?? DateTime.now().toIso8601String()),
+        ordersCount: (customerData['numberOfOrders'] is int) ? customerData['numberOfOrders'] : int.tryParse(customerData['numberOfOrders']?.toString() ?? '0') ?? 0,
+        state: '',
+        totalSpent: '0.00',
+        lastOrderId: '',
+        note: '',
+        verifiedEmail: true,
+        multipassIdentifier: '',
+        taxExempt: false,
+        tags: '',
+        lastOrderName: '',
+        currency: 'USD',
+        phoneVerifiedAt: '',
+        taxExemptions: '',
+        adminGraphqlApiId: customerData['id']?.toString() ?? '',
+        address: customerData['defaultAddress']?['address1'],
+        city: customerData['defaultAddress']?['city'],
+        zipCode: customerData['defaultAddress']?['zip'],
+        profileImage: null,
+      );
+      _error = null;
+    } catch (e) {
+      print('Auto-login error: $e');
+    } finally {
+      _hasAttemptedAutoLogin = true;
       _setLoading(false);
     }
   }
@@ -667,6 +758,15 @@ class UserProvider extends ChangeNotifier {
 
   void logout() {
     _user = null;
+    _accessToken = null;
+    _tokenExpiry = null;
+    () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('customerAccessToken');
+        await prefs.remove('customerAccessTokenExpiresAt');
+      } catch (_) {}
+    }();
     notifyListeners();
   }
 
