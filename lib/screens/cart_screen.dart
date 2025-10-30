@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
 import '../models/cart_item.dart';
 import '../utils/app_theme.dart';
+import '../utils/currency_formatter.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -110,131 +111,130 @@ class CartScreen extends StatelessWidget {
 
   Widget _buildCartItem(BuildContext context, CartItem item, CartProvider cartProvider) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsets.all(8),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image with Name and Price below
-            Column(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    image: item.image.isNotEmpty
-                        ? DecorationImage(
-                            image: NetworkImage(item.image),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: item.image.isEmpty
-                      ? const Icon(
-                          Icons.image,
-                          size: 40,
-                          color: Colors.grey,
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                // Product Image with Name and Price below
+                Column(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        image: item.image.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(item.image),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: item.image.isEmpty
+                          ? const Icon(
+                              Icons.image,
+                              size: 35,
+                              color: Colors.grey,
+                            )
+                          : null,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        item.title,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Consumer<ProductProvider>(
+                      builder: (context, productProvider, child) {
+                        return Text(
+                          CurrencyFormatter.formatPrice(item.price, productProvider.currencyCode),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Product Options (if any) - initially empty, will be at bottom right
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // This space intentionally left for options at bottom
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '\$${item.price}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
             
-            const SizedBox(width: 12),
-            
-            // Product Options (if any)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (item.selectedOptions.isNotEmpty) ...[
-                    ...item.selectedOptions.entries.map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '${entry.key}: ${entry.value}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
+                // Quantity Controls
+                Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: () {
+                            cartProvider.updateQuantity(item.id, item.quantity - 1);
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        Container(
+                          width: 40,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          child: Text(
+                            '${item.quantity}',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
-                      ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () {
+                            cartProvider.updateQuantity(item.id, item.quantity + 1);
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
-                  ],
-                ],
-              ),
-            ),
-            
-            // Quantity Controls
-            Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () {
-                        cartProvider.updateQuantity(item.id, item.quantity - 1);
+                    const SizedBox(height: 4),
+                    Consumer<ProductProvider>(
+                      builder: (context, productProvider, child) {
+                        return Text(
+                          CurrencyFormatter.formatPrice(item.totalPrice.toStringAsFixed(2), productProvider.currencyCode),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
                       },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    Container(
-                      width: 40,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                      child: Text(
-                        '${item.quantity}',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () {
-                        cartProvider.updateQuantity(item.id, item.quantity + 1);
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '\$${item.totalPrice.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(width: 8),
-            
+                
+                const SizedBox(width: 8),
+                
             // Remove Button
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -245,6 +245,37 @@ class CartScreen extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
+              ],
+            ),
+            // Product Options (if any) - placed at bottom right
+            if (item.selectedOptions.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: item.selectedOptions.entries.map(
+                    (entry) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        '${entry.key}: ${entry.value}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[700],
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ).toList(),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -274,11 +305,15 @@ class CartScreen extends StatelessWidget {
                 'Subtotal (${cartProvider.itemCount} items)',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
-              Text(
-                '₹${cartProvider.totalPrice.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              Consumer<ProductProvider>(
+                builder: (context, productProvider, child) {
+                  return Text(
+                    CurrencyFormatter.formatPrice(cartProvider.totalPrice.toStringAsFixed(2), productProvider.currencyCode),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -312,12 +347,16 @@ class CartScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                '₹${cartProvider.totalPrice.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
+              Consumer<ProductProvider>(
+                builder: (context, productProvider, child) {
+                  return Text(
+                    CurrencyFormatter.formatPrice(cartProvider.totalPrice.toStringAsFixed(2), productProvider.currencyCode),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                },
               ),
             ],
           ),

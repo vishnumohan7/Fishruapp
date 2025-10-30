@@ -371,6 +371,7 @@ class MockDataService {
   static final List<Map<String, dynamic>> mockCollections = [
     {
       'id': '1',
+      'numericId': '1', // For REST API compatibility
       'title': 'Fresh Fish',
       'handle': 'fresh-fish',
       'description': 'Our premium selection of fresh fish',
@@ -379,6 +380,7 @@ class MockDataService {
     },
     {
       'id': '2',
+      'numericId': '2', // For REST API compatibility
       'title': 'Shellfish',
       'handle': 'shellfish',
       'description': 'Delicious shellfish and crustaceans',
@@ -387,6 +389,7 @@ class MockDataService {
     },
     {
       'id': '3',
+      'numericId': '3', // For REST API compatibility
       'title': 'Premium Seafood',
       'handle': 'premium-seafood',
       'description': 'Our finest premium seafood selection',
@@ -439,7 +442,11 @@ class MockDataService {
   }
 
   static List<Map<String, dynamic>> getCollections() {
-    return List.from(mockCollections);
+    // Filter out "Home page" category
+    return List.from(mockCollections.where((collection) {
+      final title = collection['title'] as String?;
+      return title != null && title.toLowerCase() != 'home page';
+    }));
   }
 
   static List<Map<String, dynamic>> getCategories() {

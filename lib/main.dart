@@ -46,8 +46,7 @@ class FishruApp extends StatelessWidget {
         title: 'Fishru',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.light, // Always use light theme
         home: const HomeScreen(),
       ),
     );

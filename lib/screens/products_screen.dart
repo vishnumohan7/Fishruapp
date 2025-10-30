@@ -21,10 +21,68 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().loadProducts();
-      context.read<ProductProvider>().loadCollections();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      
+      final productProvider = context.read<ProductProvider>();
+      
+      // Check if there's a pending collection filter (from category click)
+      if (productProvider.pendingCollectionId != null) {
+        final collectionId = productProvider.pendingCollectionId;
+        productProvider.clearPendingCollectionId();
+        
+        // Find the collection to set as selected category
+        await productProvider.loadCollections();
+        if (!mounted) return;
+        
+        for (var collection in productProvider.collections) {
+          final numericId = (collection['numericId'] ?? collection['handle'] ?? collection['id']).toString();
+          if (numericId == collectionId) {
+            if (mounted) {
+              setState(() {
+                _selectedCategory = numericId;
+              });
+            }
+            break;
+          }
+        }
+        
+        // Load products filtered by collection
+        await productProvider.loadProducts(collectionId: collectionId);
+        if (mounted) {
+          // Apply sorting
+          productProvider.sortProducts(_sortBy);
+        }
+        return;
+      }
+      
+      // Clear any existing search query and filters when screen initializes
+      productProvider.clearSearchQuery();
+      
+      // Load all products without filters
+      await productProvider.loadProducts();
+      if (!mounted) return;
+      await productProvider.loadCollections();
+      if (mounted) {
+        // Reset filters to defaults
+        setState(() {
+          _selectedCategory = 'All';
+          _sortBy = 'name';
+        });
+        // Apply initial sorting
+        productProvider.sortProducts('name');
+      }
     });
+  }
+
+  @override
+  void deactivate() {
+    // Clear search field and reset filters when navigating away from this screen
+    _searchController.clear();
+    // Reset local filter state
+    _selectedCategory = 'All';
+    _sortBy = 'name';
+    super.deactivate();
   }
 
   @override
@@ -85,16 +143,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       Icons.search,
                       size: isDesktop ? 24 : (isTablet ? 22 : 20),
                     ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        Icons.clear,
-                        size: isDesktop ? 24 : (isTablet ? 22 : 20),
-                      ),
-                      onPressed: () {
-                        _searchController.clear();
-                        context.read<ProductProvider>().loadProducts();
-                      },
-                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear,
+                              size: isDesktop ? 24 : (isTablet ? 22 : 20),
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              // Reset filters when clearing search
+                              setState(() {
+                                _selectedCategory = 'All';
+                                _sortBy = 'name';
+                              });
+                              final productProvider = context.read<ProductProvider>();
+                              productProvider.clearSearchQuery();
+                              productProvider.loadProducts().then((_) {
+                                // Reset to default sorting
+                                productProvider.sortProducts('name');
+                              });
+                            },
+                          )
+                        : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -106,11 +176,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       vertical: isDesktop ? 16 : 12,
                     ),
                   ),
+                  onChanged: (value) {
+                    // Update UI to show/hide clear button
+                    setState(() {});
+                  },
                   onSubmitted: (value) {
-                    if (value.isNotEmpty) {
-                      context.read<ProductProvider>().searchProducts(value);
+                    if (value.trim().isNotEmpty) {
+                      context.read<ProductProvider>().searchProducts(value.trim()).then((_) {
+                        // Reapply sorting after search
+                        context.read<ProductProvider>().sortProducts(_sortBy);
+                      });
                     } else {
-                      context.read<ProductProvider>().loadProducts();
+                      context.read<ProductProvider>().loadProducts().then((_) {
+                        // Reapply sorting after loading
+                        context.read<ProductProvider>().sortProducts(_sortBy);
+                      });
                     }
                   },
                 ),
@@ -158,7 +238,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               ),
                               ...productProvider.collections.map(
                                 (collection) => DropdownMenuItem(
-                                  value: collection['id'].toString(),
+                                  // Use numericId or handle for REST API compatibility
+                                  value: (collection['numericId'] ?? collection['handle'] ?? collection['id']).toString(),
                                   child: Text(
                                     collection['title'] ?? 'Category',
                                     overflow: TextOverflow.ellipsis, // ← FIX: Truncate long text
@@ -173,10 +254,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               setState(() {
                                 _selectedCategory = value ?? 'All';
                               });
-                              if (value == 'All') {
-                                productProvider.loadProducts();
+                              if (value == null || value == 'All') {
+                                productProvider.loadProducts().then((_) {
+                                  // Reapply sorting after category change
+                                  productProvider.sortProducts(_sortBy);
+                                });
                               } else {
-                                productProvider.loadProducts(collectionId: value);
+                                productProvider.loadProducts(collectionId: value).then((_) {
+                                  // Reapply sorting after category change
+                                  productProvider.sortProducts(_sortBy);
+                                });
                               }
                             },
                           );
@@ -255,7 +342,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           setState(() {
                             _sortBy = value ?? 'name';
                           });
-                          // TODO: Implement sorting
+                          // Apply sorting
+                          if (value != null) {
+                            context.read<ProductProvider>().sortProducts(value);
+                          }
                         },
                       ),
                     ),
@@ -368,6 +458,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     await productProvider.loadProducts();
+                    // Reapply sorting after refresh
+                    productProvider.sortProducts(_sortBy);
                   },
                   child: _isGridView 
                       ? _buildGridView(productProvider, isDesktop, isTablet, horizontalPadding) 

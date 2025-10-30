@@ -149,4 +149,64 @@ class BackendService {
       throw Exception('Failed to track order: $e');
     }
   }
+
+  // Get Sliders/Banners
+  Future<List<Map<String, dynamic>>> getSliders() async {
+    try {
+      _ensureInitialized();
+      print('Fetching sliders from: ${_dio.options.baseUrl}/api/sliders');
+      final response = await _dio.get('/api/sliders');
+
+      print('Slider response status: ${response.statusCode}');
+      print('Slider response data type: ${response.data.runtimeType}');
+
+      if (response.statusCode == 200) {
+        if (response.data is List) {
+          final sliders = List<Map<String, dynamic>>.from(response.data);
+          print('Parsed ${sliders.length} sliders from array');
+          return sliders;
+        } else if (response.data is Map) {
+          if (response.data['sliders'] != null) {
+            final sliders = List<Map<String, dynamic>>.from(response.data['sliders']);
+            print('Parsed ${sliders.length} sliders from object.sliders');
+            return sliders;
+          } else if (response.data['data'] != null) {
+            final sliders = List<Map<String, dynamic>>.from(response.data['data']);
+            print('Parsed ${sliders.length} sliders from object.data');
+            return sliders;
+          } else {
+            print('Warning: Response is a Map but no sliders/data key found. Keys: ${response.data.keys}');
+            return [];
+          }
+        } else {
+          print('Warning: Unexpected response data type: ${response.data.runtimeType}');
+          return [];
+        }
+      } else {
+        print('Error: Failed to get sliders: ${response.statusCode}');
+        throw Exception('Failed to get sliders: ${response.statusCode}');
+      }
+    } catch (e, stackTrace) {
+      print('Error getting sliders: $e');
+      print('Stack trace: $stackTrace');
+      if (e is DioException) {
+        print('DioException details:');
+        print('  Type: ${e.type}');
+        print('  Message: ${e.message}');
+        print('  Response: ${e.response?.data}');
+        print('  Status code: ${e.response?.statusCode}');
+      }
+      // Return empty list instead of throwing to prevent app crashes
+      return [];
+    }
+  }
+
+  // Ensure the service is initialized before making requests
+  void _ensureInitialized() {
+    try {
+      _dio;
+    } catch (e) {
+      initialize();
+    }
+  }
 }

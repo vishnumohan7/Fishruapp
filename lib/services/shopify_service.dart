@@ -50,6 +50,90 @@ class ShopifyService {
     }
   }
 
+  // Get shop currency from Admin API
+  Future<String?> getShopCurrency() async {
+    _ensureInitialized();
+    try {
+      // Try to get currency from shop settings
+      final response = await _dio.get('/shop.json');
+
+      if (response.statusCode == 200) {
+        final shop = response.data['shop'] as Map<String, dynamic>?;
+        if (shop != null) {
+          // Try currency field
+          final currency = shop['currency'] as String?;
+          if (currency != null && currency.isNotEmpty) {
+            print('Shop currency from Admin API: $currency');
+            return currency;
+          }
+          
+          // Try primary currency
+          final primaryCurrency = shop['primary_locale'] as String?;
+          if (primaryCurrency != null) {
+            // Extract currency from locale (e.g., "en_US" -> "USD")
+            final parts = primaryCurrency.split('_');
+            if (parts.length > 1) {
+              final countryCode = parts[1];
+              // Map common country codes to currency codes
+              final currencyMap = {
+                'US': 'USD',
+                'IN': 'INR',
+                'GB': 'GBP',
+                'EU': 'EUR',
+                'JP': 'JPY',
+                'CA': 'CAD',
+                'AU': 'AUD',
+                'CN': 'CNY',
+                'CH': 'CHF',
+                'SE': 'SEK',
+                'NO': 'NOK',
+                'DK': 'DKK',
+                'PL': 'PLN',
+                'SG': 'SGD',
+                'HK': 'HKD',
+                'NZ': 'NZD',
+                'ZA': 'ZAR',
+                'BR': 'BRL',
+                'MX': 'MXN',
+                'AE': 'AED',
+              };
+              if (currencyMap.containsKey(countryCode)) {
+                return currencyMap[countryCode];
+              }
+            }
+          }
+        }
+      }
+      
+      // Fallback: Get from currencies endpoint
+      try {
+        final currenciesResponse = await _dio.get('/currencies.json');
+        if (currenciesResponse.statusCode == 200) {
+          final currencies = currenciesResponse.data['currencies'] as List<dynamic>?;
+          if (currencies != null && currencies.isNotEmpty) {
+            // Get the first enabled currency
+            for (var currency in currencies) {
+              if (currency['enabled'] == true) {
+                final currencyCode = currency['currency'] as String?;
+                if (currencyCode != null) {
+                  print('Shop currency from currencies endpoint: $currencyCode');
+                  return currencyCode;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('Could not fetch from currencies endpoint: $e');
+      }
+      
+      return null;
+    } catch (e) {
+      print('Error fetching shop currency from Admin API: $e');
+      return null;
+    }
+  }
+
   // Product Methods
   Future<List<Product>> getProducts({
     int page = 1,
@@ -57,14 +141,29 @@ class ShopifyService {
     String? collectionId,
     String? searchQuery,
   }) async {
+    _ensureInitialized();
     try {
+      // If collectionId is provided, use the dedicated collection endpoint
+      if (collectionId != null && collectionId.isNotEmpty) {
+        // Extract numeric ID or handle from collectionId (might be GraphQL ID)
+        String collectionIdentifier = collectionId;
+        if (collectionId.startsWith('gid://')) {
+          // It's a GraphQL ID, extract numeric part or use handle
+          final numericId = _extractNumericId(collectionId);
+          if (numericId != null) {
+            collectionIdentifier = numericId;
+          } else {
+            // If no numeric ID found, throw error as we need handle but don't have it
+            throw Exception('Cannot extract collection identifier from GraphQL ID: $collectionId');
+          }
+        }
+        // Use getProductsByCollection which uses the proper REST endpoint
+        return await getProductsByCollection(collectionIdentifier);
+      }
+
       final queryParams = <String, dynamic>{
         'limit': limit,
       };
-
-      if (collectionId != null) {
-        queryParams['collection_id'] = collectionId;
-      }
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
         queryParams['title'] = searchQuery;
@@ -103,18 +202,45 @@ class ShopifyService {
   }
 
   Future<List<Product>> searchProducts(String query) async {
+    _ensureInitialized();
     try {
+      if (query.isEmpty) {
+        // If query is empty, return all products
+        return await getProducts(limit: AppConstants.productsPerPage);
+      }
+
+      // Shopify Admin API doesn't have a direct search parameter for title
+      // We'll fetch products and filter client-side, or use a workaround
+      // First, try fetching with a larger limit and filter client-side
       final response = await _dio.get(
         AppConstants.productsEndpoint,
         queryParameters: {
-          'title': query,
-          'limit': AppConstants.productsPerPage,
+          'limit': 250, // Shopify allows up to 250 products per request
         },
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> productsJson = response.data['products'];
-        return productsJson.map((json) => Product.fromJson(json)).toList();
+        final allProducts = productsJson.map((json) => Product.fromJson(json)).toList();
+        
+        // Filter products client-side based on search query
+        final queryLower = query.toLowerCase();
+        final filteredProducts = allProducts.where((product) {
+          final title = product.title.toLowerCase();
+          final description = product.description.toLowerCase();
+          final vendor = product.vendor.toLowerCase();
+          final productType = product.productType.toLowerCase();
+          
+          // Search in title, description, vendor, product type, and tags
+          return title.contains(queryLower) ||
+                 description.contains(queryLower) ||
+                 vendor.contains(queryLower) ||
+                 productType.contains(queryLower) ||
+                 product.tags.any((tag) => tag.toLowerCase().contains(queryLower));
+        }).toList();
+        
+        // Limit results to productsPerPage
+        return filteredProducts.take(AppConstants.productsPerPage).toList();
       } else {
         throw Exception('Failed to search products: ${response.statusCode}');
       }
@@ -124,7 +250,34 @@ class ShopifyService {
     }
   }
 
+  // Payment Methods
+  Future<Map<String, dynamic>?> getPaymentSettings() async {
+    try {
+      final graphqlService = ShopifyGraphQLService();
+      graphqlService.initialize();
+      
+      return await graphqlService.getPaymentSettings();
+    } catch (e) {
+      print('Error fetching payment settings: $e');
+      return null;
+    }
+  }
+
   // Collection Methods
+  // Helper function to extract numeric ID from GraphQL ID
+  String? _extractNumericId(String graphqlId) {
+    // GraphQL ID format: "gid://shopify/Collection/123456789"
+    if (!graphqlId.contains('/')) {
+      // Already a numeric ID or handle
+      return graphqlId;
+    }
+    final parts = graphqlId.split('/');
+    if (parts.isNotEmpty && parts.last.isNotEmpty) {
+      return parts.last;
+    }
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> getCollections() async {
     try {
       final graphqlService = ShopifyGraphQLService();
@@ -148,25 +301,44 @@ class ShopifyService {
 
       return collections.map((edge) {
         final collection = edge['node'] as Map<String, dynamic>;
+        final graphqlId = collection['id'] as String;
+        // Extract numeric ID and use handle as fallback
+        final numericId = _extractNumericId(graphqlId);
+        final handle = collection['handle'] as String;
+        
+        // Extract image URL from image object (has {url, altText} structure)
+        final imageData = collection['image'] as Map<String, dynamic>?;
+        final imageUrl = imageData?['url'] as String?;
+        
         return {
-          'id': collection['id'],
+          'id': graphqlId, // Keep GraphQL ID for reference
+          'numericId': numericId ?? handle, // Use numeric ID or handle for REST API
+          'handle': handle, // Store handle for REST API calls
           'title': collection['title'],
-          'handle': collection['handle'],
           'description': collection['description'] ?? '',
-          'image': collection['image'],
+          'image': imageUrl, // Store image URL as string
+          'imageAltText': imageData?['altText'] as String?,
           'products': collection['products']?['edges']?.map((productEdge) => productEdge['node']).toList() ?? [],
         };
-      }).toList();
+      })
+      .where((collection) {
+        // Filter out "Home page" category
+        final title = collection['title'] as String?;
+        return title != null && title.toLowerCase() != 'home page';
+      })
+      .toList();
     } catch (e) {
       print('Error fetching collections: $e');
       throw Exception('Failed to fetch collections: $e');
     }
   }
 
-  Future<List<Product>> getProductsByCollection(String collectionId) async {
+  Future<List<Product>> getProductsByCollection(String collectionIdentifier) async {
+    _ensureInitialized();
     try {
+      // collectionIdentifier can be numeric ID or handle
       final response = await _dio.get(
-        '/collections/$collectionId/products.json',
+        '/collections/$collectionIdentifier/products.json',
         queryParameters: {
           'limit': AppConstants.productsPerPage,
         },
@@ -174,7 +346,42 @@ class ShopifyService {
 
       if (response.statusCode == 200) {
         final List<dynamic> productsJson = response.data['products'];
-        return productsJson.map((json) => Product.fromJson(json)).toList();
+        
+        // Parse products
+        final List<Product> products = [];
+        for (var json in productsJson) {
+          try {
+            final product = Product.fromJson(json as Map<String, dynamic>);
+            
+            // If product has no variants, try to fetch full product details
+            if (product.variants.isEmpty) {
+              print('⚠️ Product ${product.id} has no variants from collection endpoint. Fetching full details...');
+              try {
+                final fullProduct = await getProduct(product.id);
+                if (fullProduct != null && fullProduct.variants.isNotEmpty) {
+                  products.add(fullProduct);
+                  continue;
+                }
+              } catch (e) {
+                print('Error fetching full product details: $e');
+              }
+            }
+            
+            products.add(product);
+          } catch (e) {
+            print('Error parsing product: $e');
+            print('Product JSON: $json');
+            // Continue with other products even if one fails
+          }
+        }
+        
+        // Debug: Log summary
+        final productsWithoutVariants = products.where((p) => p.variants.isEmpty).length;
+        if (productsWithoutVariants > 0) {
+          print('⚠️ Warning: $productsWithoutVariants products have no variants after parsing');
+        }
+        
+        return products;
       } else {
         throw Exception('Failed to fetch collection products: ${response.statusCode}');
       }
@@ -381,5 +588,19 @@ class ShopifyService {
       print('Error getting customer ID from Shopify: $e');
       return null;
     }
+  }
+
+  // Note: Shopify Admin API doesn't support direct password updates
+  // Password updates should use the Storefront API via customerUpdate mutation
+  // This method is kept for backwards compatibility but should not be used
+  @Deprecated('Use Storefront API customerUpdate mutation instead')
+  Future<bool> updateCustomerPassword({
+    required String customerId,
+    required String newPassword,
+  }) async {
+    throw UnimplementedError(
+      'Shopify Admin API does not support password updates. '
+      'Please use Storefront API customerUpdate mutation with customer access token.'
+    );
   }
 }

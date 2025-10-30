@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/app_providers.dart';
 import '../utils/app_theme.dart';
+import '../utils/currency_formatter.dart';
 import '../models/product.dart';
+import 'checkout_screen.dart';
+import 'cart_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic product;
@@ -26,7 +29,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedVariant = widget.product.defaultVariant;
+    // Select an in-stock variant initially, or fallback to default variant
+    _selectedVariant = _findFirstInStockVariant() ?? widget.product.defaultVariant;
+    
+    // Set selected options based on the selected variant
+    if (_selectedVariant != null) {
+      _selectedOptions = {
+        if (_selectedVariant!.option1.isNotEmpty) 'option1': _selectedVariant!.option1,
+        if (_selectedVariant!.option2 != null && _selectedVariant!.option2!.isNotEmpty) 'option2': _selectedVariant!.option2!,
+        if (_selectedVariant!.option3 != null && _selectedVariant!.option3!.isNotEmpty) 'option3': _selectedVariant!.option3!,
+      };
+    }
+  }
+
+  // Find the first variant that is in stock
+  ProductVariant? _findFirstInStockVariant() {
+    for (var variant in widget.product.variants) {
+      final productVariant = variant as ProductVariant;
+      if (_isVariantAvailable(productVariant)) {
+        return productVariant;
+      }
+    }
+    return null; // No in-stock variant found
   }
 
   void _shareProduct() {
@@ -39,7 +63,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final String shareText = '''
 🐟 Fresh ${product.title}
 
-💰 ₹${_selectedVariant?.price ?? product.price} ${product.available ? '✅ Available Now' : '❌ Out of Stock'}
+💰 ${_selectedVariant?.price ?? product.price} ${product.isAvailable ? '✅ Available Now' : '❌ Out of Stock'}
 
 ${product.description.isNotEmpty ? '${product.description.length > 120 ? '${product.description.substring(0, 120)}...' : product.description}\n' : ''}
 🏪 From: ${product.vendor}
@@ -98,11 +122,6 @@ Get fresh seafood delivered to your doorstep! 🚚
                 },
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _shareProduct,
-            tooltip: 'Share Product',
           ),
         ],
       ),
@@ -193,25 +212,39 @@ Get fresh seafood delivered to your doorstep! 🚚
                         // Price and Stock
                         Row(
                           children: [
-                            Text(
-                              '₹${_selectedVariant?.price ?? widget.product.price}',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryColor,
-                              ),
+                            Consumer<ProductProvider>(
+                              builder: (context, productProvider, child) {
+                                return Text(
+                                  CurrencyFormatter.formatPrice(
+                                    _selectedVariant?.price ?? widget.product.price,
+                                    productProvider.currencyCode,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                );
+                              },
                             ),
                             if (_selectedVariant?.compareAtPrice != null && 
                                 _selectedVariant!.compareAtPrice.isNotEmpty &&
                                 _selectedVariant!.compareAtPrice != _selectedVariant!.price) ...[
                               const SizedBox(width: 8),
-                              Text(
-                                '₹${_selectedVariant!.compareAtPrice}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  decoration: TextDecoration.lineThrough,
-                                  color: Colors.grey[500],
-                                ),
+                              Consumer<ProductProvider>(
+                                builder: (context, productProvider, child) {
+                                  return Text(
+                                    CurrencyFormatter.formatPrice(
+                                      _selectedVariant!.compareAtPrice,
+                                      productProvider.currencyCode,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      decoration: TextDecoration.lineThrough,
+                                      color: Colors.grey[500],
+                                    ),
+                                  );
+                                },
                               ),
                               const SizedBox(width: 6),
                               Container(
@@ -240,22 +273,22 @@ Get fresh seafood delivered to your doorstep! 🚚
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: widget.product.available
+                                color: _isVariantAvailable(_selectedVariant)
                                     ? Colors.green.withOpacity(0.1)
                                     : Colors.red.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: widget.product.available
+                                  color: _isVariantAvailable(_selectedVariant)
                                       ? Colors.green
                                       : Colors.red,
                                   width: 1,
                                 ),
                               ),
                               child: Text(
-                                widget.product.available ? 'In Stock' : 'Out of Stock',
+                                _isVariantAvailable(_selectedVariant) ? 'In Stock' : 'Out of Stock',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: widget.product.available
+                                  color: _isVariantAvailable(_selectedVariant)
                                       ? Colors.green[700]
                                       : Colors.red[700],
                                   fontWeight: FontWeight.w600,
@@ -314,14 +347,27 @@ Get fresh seafood delivered to your doorstep! 🚚
                             const SizedBox(width: 16),
                             Container(
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
+                                border: Border.all(
+                                  color: _isVariantAvailable(_selectedVariant)
+                                      ? Colors.grey[300]!
+                                      : Colors.grey[200]!,
+                                ),
                                 borderRadius: BorderRadius.circular(6),
+                                color: _isVariantAvailable(_selectedVariant)
+                                    ? Colors.white
+                                    : Colors.grey[100],
                               ),
                               child: Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.remove, size: 16),
-                                    onPressed: _quantity > 1
+                                    icon: Icon(
+                                      Icons.remove,
+                                      size: 16,
+                                      color: _isVariantAvailable(_selectedVariant)
+                                          ? null
+                                          : Colors.grey[400],
+                                    ),
+                                    onPressed: _isVariantAvailable(_selectedVariant) && _quantity > 1
                                         ? () {
                                             setState(() {
                                               _quantity--;
@@ -339,19 +385,30 @@ Get fresh seafood delivered to your doorstep! 🚚
                                     alignment: Alignment.center,
                                     child: Text(
                                       '$_quantity',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
+                                        color: _isVariantAvailable(_selectedVariant)
+                                            ? Colors.black87
+                                            : Colors.grey[500],
                                       ),
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.add, size: 16),
-                                    onPressed: () {
-                                      setState(() {
-                                        _quantity++;
-                                      });
-                                    },
+                                    icon: Icon(
+                                      Icons.add,
+                                      size: 16,
+                                      color: _isVariantAvailable(_selectedVariant)
+                                          ? null
+                                          : Colors.grey[400],
+                                    ),
+                                    onPressed: _isVariantAvailable(_selectedVariant)
+                                        ? () {
+                                            setState(() {
+                                              _quantity++;
+                                            });
+                                          }
+                                        : null,
                                     padding: const EdgeInsets.all(6),
                                     constraints: const BoxConstraints(
                                       minWidth: 32,
@@ -399,12 +456,19 @@ Get fresh seafood delivered to your doorstep! 🚚
                           _selectedVariant?.id ?? widget.product.defaultVariant?.id ?? '',
                         );
                         
+                        final isVariantInStock = _isVariantAvailable(_selectedVariant);
+                        
                         return ElevatedButton.icon(
-                          onPressed: widget.product.available
+                          onPressed: isVariantInStock
                               ? () {
                                   if (isInCart) {
-                                    // Navigate to cart
-                                    Navigator.pushNamed(context, '/cart');
+                                    // Navigate to cart screen
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const CartScreen(),
+                                      ),
+                                    );
                                   } else {
                                     cartProvider.addToCart(
                                       widget.product,
@@ -434,7 +498,9 @@ Get fresh seafood delivered to your doorstep! 🚚
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isInCart ? Colors.orange : AppTheme.primaryColor,
+                            backgroundColor: isVariantInStock
+                                ? (isInCart ? Colors.orange : AppTheme.primaryColor)
+                                : Colors.grey[400]!,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -453,21 +519,37 @@ Get fresh seafood delivered to your doorstep! 🚚
                   Expanded(
                     flex: 4,
                     child: ElevatedButton(
-                      onPressed: widget.product.available
-                          ? () {
-                              // Add to cart and navigate to checkout
+                      onPressed: _isVariantAvailable(_selectedVariant)
+                          ? () async {
+                              // Clear existing cart and add only this product
                               final cartProvider = context.read<CartProvider>();
+                              
+                              // Clear cart first for "Buy Now" flow
+                              cartProvider.clearCart();
+                              
+                              // Add selected product to cart
                               cartProvider.addToCart(
                                 widget.product,
                                 quantity: _quantity,
                                 selectedOptions: _selectedOptions,
                                 variant: _selectedVariant,
                               );
-                              Navigator.pushNamed(context, '/checkout');
+                              
+                              // Navigate directly to checkout screen
+                              if (mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const CheckoutScreen(),
+                                  ),
+                                );
+                              }
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
+                        backgroundColor: _isVariantAvailable(_selectedVariant)
+                            ? AppTheme.primaryColor
+                            : Colors.grey[400]!,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -638,8 +720,59 @@ Get fresh seafood delivered to your doorstep! 🚚
         setState(() {
           _selectedVariant = productVariant;
         });
+        
+        // Check if the selected variant is in stock
+        if (!_isVariantAvailable(productVariant)) {
+          // Show message if variant is out of stock
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${productVariant.title.isNotEmpty ? productVariant.title : 'This variant'} is currently out of stock',
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {},
+              ),
+            ),
+          );
+        }
         break;
       }
+    }
+  }
+
+  // Check if a variant is available based on inventory
+  bool _isVariantAvailable(ProductVariant? variant) {
+    if (variant == null) {
+      return false;
+    }
+
+    // Check if inventory is managed by Shopify
+    final isInventoryManaged = variant.inventoryManagement == 'shopify';
+    
+    if (isInventoryManaged) {
+      // Inventory is tracked by Shopify - check actual quantity
+      if (variant.inventoryQuantity > 0) {
+        return true; // Has stock
+      }
+      
+      // If inventory quantity is 0 or negative, check if backorders are allowed
+      if (variant.inventoryPolicy == 'continue') {
+        return true; // Backorders allowed
+      }
+      // Otherwise, out of stock (inventory_policy is 'deny' and quantity is 0)
+      return false;
+    } else {
+      // Inventory not managed by Shopify
+      // Only consider available if inventory quantity is explicitly > 0
+      if (variant.inventoryQuantity > 0) {
+        return true;
+      }
+      // If quantity is 0 or negative, consider out of stock even if not managed
+      return false;
     }
   }
 }

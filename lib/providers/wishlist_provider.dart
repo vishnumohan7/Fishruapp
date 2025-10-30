@@ -2,12 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/product.dart';
+import '../services/shopify_service.dart';
+import '../constants/app_constants.dart';
+import '../services/mock_data_service.dart';
 
 class WishlistProvider with ChangeNotifier {
   List<Product> _wishlistItems = [];
   bool _isLoading = false;
   String? _error;
   String? _currentUserId;
+  final ShopifyService _shopifyService = ShopifyService();
 
   List<Product> get wishlistItems => _wishlistItems;
   bool get isLoading => _isLoading;
@@ -51,9 +55,39 @@ class WishlistProvider with ChangeNotifier {
       
       if (wishlistJson != null) {
         final List<dynamic> wishlistData = json.decode(wishlistJson);
-        _wishlistItems = wishlistData
+        final List<Product> loadedProducts = wishlistData
             .map((item) => Product.fromJson(item))
             .toList();
+        
+        // Refresh product data from API to get latest availability status
+        List<Product> refreshedProducts = [];
+        for (var product in loadedProducts) {
+          try {
+            Product? freshProduct;
+            if (AppConstants.useMockData) {
+              freshProduct = MockDataService.getProductById(product.id);
+            } else {
+              _shopifyService.initialize();
+              freshProduct = await _shopifyService.getProduct(product.id);
+            }
+            
+            // Use fresh product data if available, otherwise use cached product
+            if (freshProduct != null) {
+              refreshedProducts.add(freshProduct);
+            } else {
+              // If API call fails, use cached product but ensure available is set correctly
+              refreshedProducts.add(product);
+            }
+          } catch (e) {
+            print('Error refreshing product ${product.id} from wishlist: $e');
+            // Use cached product if refresh fails
+            refreshedProducts.add(product);
+          }
+        }
+        
+        _wishlistItems = refreshedProducts;
+        // Save refreshed data back to storage
+        await _saveWishlist();
       } else {
         _wishlistItems = [];
       }
