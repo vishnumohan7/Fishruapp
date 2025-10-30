@@ -7,7 +7,9 @@ import '../models/user.dart';
 import '../services/shopify_service.dart';
 import '../services/shopify_graphql_service.dart';
 import '../services/mock_data_service.dart';
+import '../services/backend_service.dart';
 import '../constants/app_constants.dart';
+import '../utils/currency_formatter.dart';
 
 
 // Export all providers for easy access
@@ -97,6 +99,17 @@ class CartProvider extends ChangeNotifier {
       ),
     );
     return item.quantity;
+  }
+
+  String? getCartItemId(String productId, String variantId) {
+    try {
+      final item = _items.firstWhere(
+        (item) => item.productId == productId && item.variantId == variantId,
+      );
+      return item.id;
+    } catch (e) {
+      return null;
+    }
   }
 
   // Create checkout URL (using mock data for now)
@@ -233,20 +246,82 @@ class CartProvider extends ChangeNotifier {
 
 class ProductProvider extends ChangeNotifier {
   final ShopifyService _shopifyService = ShopifyService();
+  final BackendService _backendService = BackendService();
+  final ShopifyGraphQLService _graphqlService = ShopifyGraphQLService();
   
   List<Product> _products = [];
   List<Product> _featuredProducts = [];
   List<Map<String, dynamic>> _collections = [];
+  List<Map<String, dynamic>> _sliders = [];
   bool _isLoading = false;
+  bool _isLoadingSliders = false;
   String? _error;
   String _searchQuery = '';
+  String? _pendingCollectionId; // To hold collection ID when navigating from home
+  String _currencyCode = 'INR'; // Default currency (change to your store's currency if different)
 
   List<Product> get products => _products;
   List<Product> get featuredProducts => _featuredProducts;
   List<Map<String, dynamic>> get collections => _collections;
+  List<Map<String, dynamic>> get sliders => _sliders;
   bool get isLoading => _isLoading;
+  bool get isLoadingSliders => _isLoadingSliders;
   String? get error => _error;
   String get searchQuery => _searchQuery;
+  String? get pendingCollectionId => _pendingCollectionId;
+  String get currencyCode => _currencyCode;
+
+  void clearSearchQuery() {
+    _searchQuery = '';
+    notifyListeners();
+  }
+
+  void setPendingCollectionId(String? collectionId) {
+    _pendingCollectionId = collectionId;
+    notifyListeners();
+  }
+
+  void clearPendingCollectionId() {
+    _pendingCollectionId = null;
+    notifyListeners();
+  }
+
+  Future<void> loadCurrency() async {
+    try {
+      print('🔄 Starting currency load...');
+      print('   Current currency: $_currencyCode');
+      print('   Using mock data: ${AppConstants.useMockData}');
+      
+      if (!AppConstants.useMockData) {
+        // Try GraphQL Storefront API first
+        print('   Attempting GraphQL currency fetch...');
+        String? currencyCode = await _graphqlService.getShopCurrency();
+        
+        // If that fails, try Admin REST API
+        if (currencyCode == null || currencyCode.isEmpty) {
+          print('   GraphQL currency fetch failed, trying Admin API...');
+          currencyCode = await _shopifyService.getShopCurrency();
+        }
+        
+        if (currencyCode != null && currencyCode.isNotEmpty) {
+          _currencyCode = currencyCode.toUpperCase();
+          print('✅ Shop currency loaded and updated: $_currencyCode');
+          print('   Currency symbol will be: ${CurrencyFormatter.getCurrencySymbol(_currencyCode)}');
+          notifyListeners();
+          print('   ✅ Listeners notified - UI should update');
+        } else {
+          print('⚠️ Warning: Could not fetch currency, using default: $_currencyCode');
+          print('   Default currency symbol: ${CurrencyFormatter.getCurrencySymbol(_currencyCode)}');
+        }
+      } else {
+        print('ℹ️ Using mock data - keeping default currency: $_currencyCode');
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error loading currency: $e');
+      print('Stack trace: $stackTrace');
+      print('⚠️ Keeping default currency: $_currencyCode');
+    }
+  }
 
   Future<void> loadProducts({int page = 1, String? collectionId}) async {
     _setLoading(true);
@@ -317,6 +392,40 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> loadSliders() async {
+    _isLoadingSliders = true;
+    notifyListeners();
+    try {
+      print('Loading sliders from Shopify...');
+      // Try Shopify first (recommended)
+      _sliders = await _graphqlService.getSliders();
+      
+      // Fallback to backend if Shopify returns empty and backend is configured
+      if (_sliders.isEmpty) {
+        print('No sliders from Shopify, trying backend...');
+        try {
+          _sliders = await _backendService.getSliders();
+        } catch (e) {
+          print('Backend also failed: $e');
+        }
+      }
+      
+      print('Loaded ${_sliders.length} sliders');
+      if (_sliders.isNotEmpty) {
+        print('Slider data: ${_sliders.first}');
+      } else {
+        print('Warning: No sliders returned. Please configure sliders in Shopify Admin or backend API.');
+      }
+    } catch (e, stackTrace) {
+      print('Error loading sliders: $e');
+      print('Stack trace: $stackTrace');
+      _sliders = []; // Set empty sliders on error
+    } finally {
+      _isLoadingSliders = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> searchProducts(String query) async {
     _searchQuery = query;
     _setLoading(true);
@@ -350,6 +459,39 @@ class ProductProvider extends ChangeNotifier {
       _error = e.toString();
       return null;
     }
+  }
+
+  void sortProducts(String sortBy) {
+    final List<Product> sortedProducts = List.from(_products);
+    
+    switch (sortBy) {
+      case 'name':
+        sortedProducts.sort((a, b) => a.title.compareTo(b.title));
+        break;
+      case 'price_low':
+        sortedProducts.sort((a, b) {
+          final priceA = double.tryParse(a.price) ?? 0.0;
+          final priceB = double.tryParse(b.price) ?? 0.0;
+          return priceA.compareTo(priceB);
+        });
+        break;
+      case 'price_high':
+        sortedProducts.sort((a, b) {
+          final priceA = double.tryParse(a.price) ?? 0.0;
+          final priceB = double.tryParse(b.price) ?? 0.0;
+          return priceB.compareTo(priceA);
+        });
+        break;
+      case 'newest':
+        sortedProducts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      default:
+        // Default to name sorting
+        sortedProducts.sort((a, b) => a.title.compareTo(b.title));
+    }
+    
+    _products = sortedProducts;
+    notifyListeners();
   }
 
   void _setLoading(bool loading) {
@@ -541,6 +683,130 @@ class UserProvider extends ChangeNotifier {
       _error = e.toString();
       notifyListeners();
       rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    _setLoading(true);
+    try {
+      // Validate email format
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+        _error = 'Please enter a valid email address';
+        return false;
+      }
+
+      final graphqlService = ShopifyGraphQLService();
+      graphqlService.initialize();
+      
+      final result = await graphqlService.recoverCustomerPassword(email);
+
+      if (result['success'] == true) {
+        // Store success message for display (can be shown to user)
+        final message = result['message'] as String?;
+        _error = message; // Store message in _error field for display
+        return true;
+      } else {
+        _error = result['error'] as String? ?? 'Failed to send password reset email. Please try again.';
+        return false;
+      }
+    } catch (e) {
+      print('Error sending password recovery: $e');
+      _error = 'Failed to send password reset email. Please try again.';
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _setLoading(true);
+    try {
+      if (_user == null) {
+        _error = 'No user logged in';
+        return false;
+      }
+
+      // First verify current password by attempting to get access token
+      // This is a workaround since Shopify doesn't have a direct "verify password" endpoint
+      final customerEmail = _user!.email;
+      
+      try {
+        // Attempt to get customer access token with current password to verify
+        // If this fails, the current password is incorrect
+        final graphqlService = ShopifyGraphQLService();
+        graphqlService.initialize();
+        
+        final tokenResult = await graphqlService.client.mutate(
+          MutationOptions(
+            document: gql('''
+              mutation customerAccessTokenCreate(\$input: CustomerAccessTokenCreateInput!) {
+                customerAccessTokenCreate(input: \$input) {
+                  customerAccessToken {
+                    accessToken
+                  }
+                  userErrors {
+                    field
+                    message
+                  }
+                }
+              }
+            '''),
+            variables: {
+              'input': {
+                'email': customerEmail,
+                'password': currentPassword,
+              }
+            },
+          ),
+        );
+
+        if (tokenResult.hasException) {
+          throw tokenResult.exception!;
+        }
+
+        final errors = tokenResult.data?['customerAccessTokenCreate']?['userErrors'] as List?;
+        if (errors != null && errors.isNotEmpty) {
+          _error = 'Current password is incorrect';
+          return false;
+        }
+
+        final accessToken = tokenResult.data?['customerAccessTokenCreate']?['customerAccessToken']?['accessToken'];
+        if (accessToken == null) {
+          _error = 'Current password is incorrect';
+          return false;
+        }
+
+        // Current password is correct, now update to new password using Storefront API
+        final success = await graphqlService.updateCustomerPassword(
+          customerAccessToken: accessToken,
+          newPassword: newPassword,
+        );
+
+        if (!success) {
+          _error = 'Failed to update password. Please try again.';
+          return false;
+        }
+
+        _error = null;
+        return true;
+      } catch (e) {
+        print('Password verification error: $e');
+        if (e.toString().contains('401') || e.toString().contains('Unauthorized') || e.toString().contains('incorrect')) {
+          _error = 'Current password is incorrect';
+        } else {
+          _error = 'Failed to change password: $e';
+        }
+        return false;
+      }
+    } catch (e) {
+      print('Error changing password: $e');
+      _error = 'Failed to change password: $e';
+      return false;
     } finally {
       _setLoading(false);
     }

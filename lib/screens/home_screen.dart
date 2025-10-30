@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import '../providers/app_providers.dart';
 import '../utils/app_theme.dart';
+import '../constants/app_constants.dart';
 import '../widgets/product_card.dart';
 import 'auth_screen.dart';
 import 'products_screen.dart';
@@ -82,14 +84,32 @@ class HomeTabScreen extends StatefulWidget {
 }
 
 class _HomeTabScreenState extends State<HomeTabScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     // Load data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().loadFeaturedProducts();
-      context.read<ProductProvider>().loadCollections();
+      final productProvider = context.read<ProductProvider>();
+      productProvider.loadCurrency(); // Load currency first
+      productProvider.loadFeaturedProducts();
+      productProvider.loadCollections();
+      productProvider.loadSliders();
     });
+  }
+
+  @override
+  void deactivate() {
+    // Clear search field when navigating away from this screen
+    _searchController.clear();
+    super.deactivate();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -209,15 +229,30 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
+                controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search products...',
                   prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.filter_list),
-                    onPressed: () {
-                      // TODO: Implement filters
-                    },
-                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {}); // Update UI to hide clear button
+                          },
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.filter_list),
+                          onPressed: () {
+                            // Navigate to products screen for filters
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ProductsScreen(),
+                              ),
+                            );
+                          },
+                        ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -225,81 +260,159 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   filled: true,
                   fillColor: Colors.grey[100],
                 ),
+                onChanged: (value) {
+                  // Update UI to show/hide clear button
+                  setState(() {});
+                },
                 onSubmitted: (value) {
-                  // TODO: Implement search
+                  if (value.trim().isNotEmpty) {
+                    // Execute search and then navigate to products screen
+                    context.read<ProductProvider>().searchProducts(value.trim()).then((_) {
+                      context.read<ProductProvider>().sortProducts('name');
+                      // Navigate to products screen to show search results
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProductsScreen(),
+                        ),
+                      );
+                    });
+                  }
                 },
               ),
             ),
 
-            // Special Offers Section
+            // Carousel Slider Section
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Get 20% Off',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
+              child: Consumer<ProductProvider>(
+                builder: (context, productProvider, child) {
+                  if (productProvider.isLoadingSliders) {
+                    return const SizedBox(
+                      height: 180,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  // Hide slider section if no sliders available
+                  if (productProvider.sliders.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return CarouselSlider.builder(
+                    itemCount: productProvider.sliders.length,
+                    itemBuilder: (context, index, realIndex) {
+                      final slider = productProvider.sliders[index];
+                      final imageUrl = slider['imageUrl'] ?? slider['image'] ?? '';
+                      final linkUrl = slider['linkUrl'] ?? slider['link'] ?? '';
+
+                      return GestureDetector(
+                        onTap: () {
+                          if (linkUrl.isNotEmpty) {
+                            // Handle navigation based on link type
+                            if (linkUrl.startsWith('collection:')) {
+                              final collectionId = linkUrl.replaceFirst('collection:', '');
+                              context.read<ProductProvider>().setPendingCollectionId(collectionId);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProductsScreen(),
+                                ),
+                              );
+                            } else if (linkUrl.startsWith('product:')) {
+                              final productId = linkUrl.replaceFirst('product:', '');
+                              // TODO: Navigate to product detail screen
+                              print('Navigate to product: $productId');
+                            }
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 5,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: imageUrl.isNotEmpty
+                                ? Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              AppTheme.primaryColor,
+                                              AppTheme.secondaryColor,
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.white,
+                                            size: 48,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            value: loadingProgress.expectedTotalBytes != null
+                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                    loadingProgress.expectedTotalBytes!
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          AppTheme.primaryColor,
+                                          AppTheme.secondaryColor,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                    ),
+                                  ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'On your first order',
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: Colors.white.withOpacity(0.9),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              // TODO: Implement offer
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppTheme.primaryColor,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Shop Now',
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                      );
+                    },
+                    options: CarouselOptions(
+                      height: 180,
+                      autoPlay: true,
+                      enlargeCenterPage: true,
+                      autoPlayInterval: const Duration(seconds: 5),
+                      autoPlayAnimationDuration: const Duration(milliseconds: 800),
+                      autoPlayCurve: Curves.fastOutSlowIn,
+                      pauseAutoPlayOnTouch: true,
+                      viewportFraction: 0.92,
+                      pageViewKey: const PageStorageKey<String>('carousel_slider'),
+                    ),
+                  );
+                },
               ),
             ),
-
-            const SizedBox(height: 24),
 
             // Categories Section
             Padding(
@@ -334,33 +447,99 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                           itemCount: productProvider.collections.length,
                           itemBuilder: (context, index) {
                             final collection = productProvider.collections[index];
-                            return Container(
-                              width: 80,
-                              margin: const EdgeInsets.only(right: 12),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      Icons.category,
-                                      color: AppTheme.primaryColor,
-                                      size: 30,
-                                    ),
+                            final imageUrl = collection['image'] as String?;
+                            final title = collection['title'] ?? 'Category';
+                            
+                            return GestureDetector(
+                              onTap: () {
+                                // Navigate to products screen filtered by this collection
+                                final numericId = (collection['numericId'] ?? collection['handle'] ?? collection['id']).toString();
+                                
+                                // Set pending collection ID before navigation
+                                context.read<ProductProvider>().setPendingCollectionId(numericId);
+                                
+                                // Navigate to products screen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ProductsScreen(),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    collection['title'] ?? 'Category',
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
+                                );
+                              },
+                              child: Container(
+                                width: 80,
+                                margin: const EdgeInsets.only(right: 12),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.grey.withOpacity(0.2),
+                                            spreadRadius: 1,
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: imageUrl != null && imageUrl.isNotEmpty
+                                            ? Image.network(
+                                                imageUrl,
+                                                fit: BoxFit.cover,
+                                                width: 60,
+                                                height: 60,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  // Fallback to icon if image fails to load
+                                                  return Container(
+                                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                                    child: Icon(
+                                                      Icons.category,
+                                                      color: AppTheme.primaryColor,
+                                                      size: 30,
+                                                    ),
+                                                  );
+                                                },
+                                                loadingBuilder: (context, child, loadingProgress) {
+                                                  if (loadingProgress == null) return child;
+                                                  return Container(
+                                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                                    child: Center(
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        value: loadingProgress.expectedTotalBytes != null
+                                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                                loadingProgress.expectedTotalBytes!
+                                                            : null,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              )
+                                            : Container(
+                                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                                child: Icon(
+                                                  Icons.category,
+                                                  color: AppTheme.primaryColor,
+                                                  size: 30,
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      title,
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -407,19 +586,26 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      return SizedBox(
-                        height: 280,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: productProvider.featuredProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = productProvider.featuredProducts[index];
-                            return ProductCard(
-                              product: product,
-                              layout: ProductCardLayout.horizontal,
-                            );
-                          },
+                      // Show up to 12 products (2 columns x 6 rows)
+                      final productsToShow = productProvider.featuredProducts.take(12).toList();
+                      
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(), // Disable scrolling since it's in a SingleChildScrollView
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.60, // Slightly taller to prevent overflow
                         ),
+                        itemCount: productsToShow.length,
+                        itemBuilder: (context, index) {
+                          final product = productsToShow[index];
+                          return ProductCard(
+                            product: product,
+                            layout: ProductCardLayout.grid,
+                          );
+                        },
                       );
                     },
                   ),

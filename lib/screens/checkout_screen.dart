@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
 import '../utils/app_theme.dart';
+import '../services/shopify_service.dart';
+import '../constants/app_constants.dart';
 import 'webview_screen.dart';
 import 'orders_screen.dart';
 
@@ -15,6 +17,101 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isLoading = false;
   String? _error;
+  List<Map<String, dynamic>> _availablePaymentOptions = [];
+  bool _paymentOptionsLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPaymentOptions();
+  }
+
+  Future<void> _loadPaymentOptions() async {
+    if (AppConstants.useMockData) {
+      // Mock payment options for testing
+      setState(() {
+        _availablePaymentOptions = [
+          {'type': 'card', 'name': 'Credit/Debit Cards', 'icon': Icons.credit_card},
+          {'type': 'cash_on_delivery', 'name': 'Cash on Delivery', 'icon': Icons.money},
+        ];
+        _paymentOptionsLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final shopifyService = ShopifyService();
+      final paymentSettings = await shopifyService.getPaymentSettings();
+      
+      final List<Map<String, dynamic>> availableOptions = [];
+      
+      if (paymentSettings != null) {
+        // Check for card payments (if acceptedCardBrands is available)
+        final acceptedCards = paymentSettings['acceptedCardBrands'] as List?;
+        if (acceptedCards != null && acceptedCards.isNotEmpty) {
+          availableOptions.add({
+            'type': 'card',
+            'name': 'Credit/Debit Cards',
+            'icon': Icons.credit_card,
+          });
+        }
+        
+        // Check for digital wallets
+        final digitalWallets = paymentSettings['supportedDigitalWallets'] as List?;
+        if (digitalWallets != null && digitalWallets.isNotEmpty) {
+          // Check for Apple Pay
+          if (digitalWallets.any((wallet) => wallet.toString().toLowerCase().contains('apple'))) {
+            availableOptions.add({
+              'type': 'apple_pay',
+              'name': 'Apple Pay',
+              'icon': Icons.apple,
+            });
+          }
+          
+          // Check for Google Pay
+          if (digitalWallets.any((wallet) => wallet.toString().toLowerCase().contains('google'))) {
+            availableOptions.add({
+              'type': 'google_pay',
+              'name': 'Google Pay',
+              'icon': Icons.account_balance_wallet,
+            });
+          }
+          
+          // Check for PayPal
+          if (digitalWallets.any((wallet) => wallet.toString().toLowerCase().contains('paypal'))) {
+            availableOptions.add({
+              'type': 'paypal',
+              'name': 'PayPal',
+              'icon': Icons.paypal,
+            });
+          }
+        }
+      }
+      
+      // Always include Cash on Delivery as a fallback (or remove if not needed)
+      // You can remove this if COD is not available in your store
+      availableOptions.add({
+        'type': 'cash_on_delivery',
+        'name': 'Cash on Delivery',
+        'icon': Icons.money,
+      });
+      
+      setState(() {
+        _availablePaymentOptions = availableOptions;
+        _paymentOptionsLoading = false;
+      });
+    } catch (e) {
+      print('Error loading payment options: $e');
+      // Fallback to default options on error
+      setState(() {
+        _availablePaymentOptions = [
+          {'type': 'card', 'name': 'Credit/Debit Cards', 'icon': Icons.credit_card},
+          {'type': 'cash_on_delivery', 'name': 'Cash on Delivery', 'icon': Icons.money},
+        ];
+        _paymentOptionsLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,33 +325,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                             SizedBox(height: isDesktop ? 12 : 8),
-                            _buildPaymentOption(
-                              Icons.credit_card,
-                              'Credit/Debit Cards',
-                              isDesktop,
-                              isTablet,
-                            ),
-                            SizedBox(height: isDesktop ? 12 : 10),
-                            _buildPaymentOption(
-                              Icons.paypal,
-                              'PayPal',
-                              isDesktop,
-                              isTablet,
-                            ),
-                            SizedBox(height: isDesktop ? 12 : 10),
-                            _buildPaymentOption(
-                              Icons.apple,
-                              'Apple Pay',
-                              isDesktop,
-                              isTablet,
-                            ),
-                            SizedBox(height: isDesktop ? 12 : 10),
-                            _buildPaymentOption(
-                              Icons.money,
-                              'Cash on Delivery',
-                              isDesktop,
-                              isTablet,
-                            ),
+                            if (_paymentOptionsLoading)
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              )
+                            else if (_availablePaymentOptions.isEmpty)
+                              Padding(
+                                padding: EdgeInsets.all(isDesktop ? 16 : 12),
+                                child: Text(
+                                  'No payment options available',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 15 : (isTablet ? 14 : 13),
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              )
+                            else
+                              ..._availablePaymentOptions.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final option = entry.value;
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: index < _availablePaymentOptions.length - 1
+                                        ? (isDesktop ? 12 : 10)
+                                        : 0,
+                                  ),
+                                  child: _buildPaymentOption(
+                                    option['icon'] as IconData,
+                                    option['name'] as String,
+                                    isDesktop,
+                                    isTablet,
+                                  ),
+                                );
+                              }).toList(),
                           ],
                         ),
                       ),
@@ -407,6 +513,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       
       if (!mounted) return;
       
+      final cartItemCountBefore = cartProvider.itemCount;
+      final cartTotalBefore = cartProvider.totalPrice;
+      
       final result = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
@@ -417,26 +526,52 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       );
 
+      // Check if result is true OR if cart was cleared (indicating successful checkout)
+      final cartItemCountAfter = cartProvider.itemCount;
+      final isSuccess = result == true;
+      
+      print('Checkout result: $result');
+      print('Cart before checkout: $cartItemCountBefore items');
+      print('Cart after checkout: $cartItemCountAfter items');
+      print('Is success (result): $isSuccess');
+
+      // Always redirect to orders if WebView returned true
       if (result == true) {
         if (mounted) {
-          await _createOrderFromCart(context, cartProvider);
+          // Create order record if cart had items
+          if (cartItemCountBefore > 0) {
+            await _createOrderFromCart(context, cartProvider);
+          }
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order placed successfully!'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
+          // Clear the cart if not already cleared
+          if (cartProvider.itemCount > 0) {
+            cartProvider.clearCart();
+          }
           
-          cartProvider.clearCart();
-          
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const OrdersScreen(),
-            ),
-            (route) => false,
-          );
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Order placed successfully!'),
+                backgroundColor: AppTheme.successColor,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            
+            // Wait a moment for the snackbar to show, then redirect
+            await Future.delayed(const Duration(milliseconds: 500));
+            
+            if (mounted) {
+              // Navigate to orders screen, removing all previous routes (including checkout, cart, etc.)
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const OrdersScreen(),
+                ),
+                (route) => false, // Remove ALL previous routes
+              );
+            }
+          }
         }
       }
     } catch (e) {

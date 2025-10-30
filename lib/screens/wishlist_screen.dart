@@ -108,28 +108,41 @@ class _WishlistScreenState extends State<WishlistScreen> {
               onRefresh: () async {
                 await wishlistProvider.loadWishlist();
               },
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.6, // Adjust to fit card height
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: wishlistProvider.wishlistItems.length,
-                itemBuilder: (context, index) {
-                  final product = wishlistProvider.wishlistItems[index];
-                  return ProductCard(
-                    product: product,
-                    layout: ProductCardLayout.compact,
-                    showCartButton: false,
-                  );
-                },
-              ),
+              child: _buildGridView(context, wishlistProvider),
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildGridView(BuildContext context, WishlistProvider wishlistProvider) {
+    // Media Query for responsive design - same as products screen
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
+    final isDesktop = size.width > 900;
+    final horizontalPadding = isDesktop ? 24.0 : (isTablet ? 20.0 : 16.0);
+    int crossAxisCount = isDesktop ? 4 : (isTablet ? 3 : 2);
+    double childAspectRatio = isDesktop ? 0.75 : (isTablet ? 0.72 : 0.7);
+    double spacing = isDesktop ? 20 : (isTablet ? 16 : 12);
+    
+    return GridView.builder(
+      padding: EdgeInsets.all(horizontalPadding),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: childAspectRatio,
+        crossAxisSpacing: spacing,
+        mainAxisSpacing: spacing,
+      ),
+      itemCount: wishlistProvider.wishlistItems.length,
+      itemBuilder: (context, index) {
+        final product = wishlistProvider.wishlistItems[index];
+        return ProductCard(
+          product: product,
+          layout: ProductCardLayout.grid,
+          showCartButton: false, // Hide cart button in wishlist
+        );
+      },
     );
   }
 

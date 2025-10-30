@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../providers/app_providers.dart';
 import '../utils/app_theme.dart';
+import '../utils/currency_formatter.dart';
 import '../screens/product_detail_screen.dart';
+import '../screens/cart_screen.dart';
 
 enum ProductCardLayout { grid, horizontal, list, compact }
 
@@ -45,18 +47,20 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildGridCard(BuildContext context) {
     return Container(
-      width: width ?? 160,
-      height: height ?? 280,
-      margin: margin ?? const EdgeInsets.only(right: 12),
+      width: width,
+      height: height,
+      margin: margin,
       child: InkWell(
         onTap: onTap ?? () => _navigateToProductDetail(context),
         child: Card(
-          elevation: 2,
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.max,
             children: [
               // Product Image with Wishlist Overlay
               Expanded(
@@ -151,38 +155,50 @@ class ProductCard extends StatelessWidget {
               ),
 
               // Product Info
-              Flexible(
+              Expanded(
                 flex: 2,
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Flexible(
                         child: _buildProductTitle(context),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Flexible(
-                            child: Text(
-                              '₹${product.price}',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                            child: Consumer<ProductProvider>(
+                              builder: (context, productProvider, child) {
+                                final currency = productProvider.currencyCode;
+                                final formattedPrice = CurrencyFormatter.formatPrice(product.price, currency);
+                                // Debug print (remove in production)
+                                if (currency != 'USD' && formattedPrice.startsWith('\$')) {
+                                  print('⚠️ ProductCard: Currency=$currency but showing \$, price=$formattedPrice');
+                                }
+                                return Text(
+                                  formattedPrice,
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
                             ),
                           ),
                           if (showCartButton)
                             Consumer<CartProvider>(
                               builder: (context, cartProvider, child) {
+                                final variantId = product.defaultVariant?.id ?? '';
                                 final isInCart = cartProvider.isInCart(
                                   product.id,
-                                  product.defaultVariant?.id ?? '',
+                                  variantId,
                                 );
                                 return IconButton(
                                   icon: Icon(
@@ -200,16 +216,27 @@ class ProductCard extends StatelessWidget {
                                     minHeight: 32,
                                   ),
                                   onPressed: () {
-                                    if (!isInCart) {
-                                      cartProvider.addToCart(product);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '${product.title} added to cart',
-                                          ),
-                                          backgroundColor: AppTheme.successColor,
-                                        ),
+                                    if (isInCart) {
+                                      // Remove from cart
+                                      final cartItemId = cartProvider.getCartItemId(
+                                        product.id,
+                                        variantId,
                                       );
+                                      if (cartItemId != null) {
+                                        cartProvider.removeFromCart(cartItemId);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              '${product.title} removed from cart',
+                                            ),
+                                            backgroundColor: Colors.orange,
+                                          ),
+                                        );
+                                      }
+                                    } else {
+                                      // Add to cart
+                                      cartProvider.addToCart(product);
+                                      _showAddToCartBottomSheet(context, product);
                                     }
                                   },
                                 );
@@ -235,7 +262,8 @@ class ProductCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap ?? () => _navigateToProductDetail(context),
         child: Card(
-          elevation: 2,
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -362,9 +390,10 @@ class ProductCard extends StatelessWidget {
                         if (showCartButton)
                           Consumer<CartProvider>(
                             builder: (context, cartProvider, child) {
+                              final variantId = product.defaultVariant?.id ?? '';
                               final isInCart = cartProvider.isInCart(
                                 product.id,
-                                product.defaultVariant?.id ?? '',
+                                variantId,
                               );
                               return IconButton(
                                 icon: Icon(
@@ -382,16 +411,27 @@ class ProductCard extends StatelessWidget {
                                   minHeight: 32,
                                 ),
                                 onPressed: () {
-                                  if (!isInCart) {
-                                    cartProvider.addToCart(product);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '${product.title} added to cart',
-                                        ),
-                                        backgroundColor: AppTheme.successColor,
-                                      ),
+                                  if (isInCart) {
+                                    // Remove from cart
+                                    final cartItemId = cartProvider.getCartItemId(
+                                      product.id,
+                                      variantId,
                                     );
+                                    if (cartItemId != null) {
+                                      cartProvider.removeFromCart(cartItemId);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '${product.title} removed from cart',
+                                          ),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                    }
+                                  } else {
+                                    // Add to cart
+                                    cartProvider.addToCart(product);
+                                    _showAddToCartBottomSheet(context, product);
                                   }
                                 },
                               );
@@ -411,6 +451,8 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildListCard(BuildContext context) {
     return Card(
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.2),
       margin: margin ?? const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap ?? () => _navigateToProductDetail(context),
@@ -468,7 +510,8 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildCompactCard(BuildContext context) {
     return Card(
-      elevation: 2,
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap ?? () => _navigateToProductDetail(context),
@@ -521,14 +564,18 @@ class ProductCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Flexible(
-                          child: Text(
-                            '₹${product.price}',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          child: Consumer<ProductProvider>(
+                            builder: (context, productProvider, child) {
+                              return Text(
+                                CurrencyFormatter.formatPrice(product.price, productProvider.currencyCode),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ),
                         if (showWishlistButton)
@@ -603,10 +650,12 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildPriceRow(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          '₹${product.price}',
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, child) {
+        return Row(
+          children: [
+            Text(
+              CurrencyFormatter.formatPrice(product.price, productProvider.currencyCode),
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: AppTheme.primaryColor,
             fontWeight: FontWeight.bold,
@@ -615,7 +664,7 @@ class ProductCard extends StatelessWidget {
         if (product.onSale) ...[
           const SizedBox(width: 8),
           Text(
-            '₹${product.compareAtPrice}',
+            CurrencyFormatter.formatPrice(product.compareAtPrice, productProvider.currencyCode),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               decoration: TextDecoration.lineThrough,
               color: Colors.grey[600],
@@ -624,14 +673,17 @@ class ProductCard extends StatelessWidget {
         ],
       ],
     );
+      },
+    );
   }
 
   Widget _buildCartButton(BuildContext context) {
     return Consumer<CartProvider>(
       builder: (context, cartProvider, child) {
+        final variantId = product.defaultVariant?.id ?? '';
         final isInCart = cartProvider.isInCart(
           product.id,
-          product.defaultVariant?.id ?? '',
+          variantId,
         );
 
         return IconButton(
@@ -643,14 +695,25 @@ class ProductCard extends StatelessWidget {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           onPressed: () {
-            if (!isInCart) {
-              cartProvider.addToCart(product);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${product.title} added to cart'),
-                  backgroundColor: AppTheme.successColor,
-                ),
+            if (isInCart) {
+              // Remove from cart
+              final cartItemId = cartProvider.getCartItemId(
+                product.id,
+                variantId,
               );
+              if (cartItemId != null) {
+                cartProvider.removeFromCart(cartItemId);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${product.title} removed from cart'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            } else {
+              // Add to cart
+              cartProvider.addToCart(product);
+              _showAddToCartBottomSheet(context, product);
             }
           },
         );
@@ -700,6 +763,123 @@ class ProductCard extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (context) => ProductDetailScreen(product: product),
+      ),
+    );
+  }
+
+  void _showAddToCartBottomSheet(BuildContext context, Product product) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Success icon
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppTheme.successColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: AppTheme.successColor,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Success message
+            Text(
+              'Added to Cart!',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              product.title,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 24),
+            // Buttons
+            Row(
+              children: [
+                // Continue Shopping Button
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(color: AppTheme.primaryColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Continue Shopping',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Continue to Cart Button
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CartScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'View Cart',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
       ),
     );
   }

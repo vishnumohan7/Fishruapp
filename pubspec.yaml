@@ -68,6 +68,9 @@ dependencies:
   
   # Navigation
   go_router: ^14.2.7
+  
+  # Carousel
+  carousel_slider: ^5.0.0
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +94,7 @@ flutter:
     - .env
     #- assets/fonts/
     - assets/images/
+    - assets/logo.png
     # - assets/icons/ 
 
 

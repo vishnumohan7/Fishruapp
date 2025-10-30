@@ -8,9 +8,16 @@ import 'orders_screen.dart';
 import 'wishlist_screen.dart';
 import 'notifications_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
  
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _ordersFetched = false;
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -107,7 +114,15 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHeader(BuildContext context, user, bool isTablet) {
-    return Card(
+    return Consumer<OrderProvider>(
+      builder: (context, orderProvider, child) {
+        // Calculate total spent dynamically from orders
+        final totalSpent = orderProvider.orders.fold<double>(
+          0.0,
+          (sum, order) => sum + order.totalAmount,
+        );
+        
+        return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         
@@ -191,13 +206,13 @@ class ProfileScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildStatItem(context, 'Orders', '${user.ordersCount}', isTablet),
+                  _buildStatItem(context, 'Orders', '${orderProvider.orders.length}', isTablet),
                   Container(
                     width: 1,
                     height: isTablet ? 40 : 35,
                     color: Colors.grey[300],
                   ),
-                  _buildStatItem(context,'Total Spent', '₹${user.totalSpent}', isTablet),
+                  _buildStatItem(context,'Total Spent', '₹${totalSpent.toStringAsFixed(2)}', isTablet),
                   Container(
                     width: 1,
                     height: isTablet ? 40 : 35,
@@ -210,6 +225,8 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+      },
     );
   }
 
@@ -291,18 +308,6 @@ class ProfileScreen extends StatelessWidget {
             color: Colors.red,
             onTap: () {
               // TODO: Implement address management
-            },
-            isTablet: isTablet,
-          ),
-          Divider(height: 1, indent: isTablet ? 72 : 68),
-          _buildProfileOption(
-            context,
-            icon: Icons.payment_outlined,
-            title: 'Payment Methods',
-            subtitle: 'Manage your payment methods',
-            color: Colors.green,
-            onTap: () {
-              // TODO: Implement payment methods
             },
             isTablet: isTablet,
           ),
@@ -408,93 +413,420 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildOrderHistory(BuildContext context, bool isTablet) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 24 : 16),
+    return Consumer2<UserProvider, OrderProvider>(
+      builder: (context, userProvider, orderProvider, child) {
+        final customerEmail = userProvider.user?.email;
+        
+        // Fetch orders only once when needed
+        if (customerEmail != null && 
+            !_ordersFetched && 
+            orderProvider.orders.isEmpty && 
+            !orderProvider.isLoading) {
+          _ordersFetched = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            orderProvider.fetchOrders(customerEmail: customerEmail);
+          });
+        }
+        
+        final recentOrders = orderProvider.orders.take(3).toList();
+        
+        // If there's an error and no orders, show error state
+        if (orderProvider.error != null && orderProvider.orders.isEmpty && !orderProvider.isLoading) {
+          return Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+              side: BorderSide(color: Colors.grey[200]!),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(isTablet ? 24 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recent Orders',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isTablet ? 22 : 18,
+                    ),
+                  ),
+                  SizedBox(height: isTablet ? 20 : 16),
+                  Container(
+                    padding: EdgeInsets.all(isTablet ? 36 : 28),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: isTablet ? 56 : 48,
+                            color: Colors.grey[400],
+                          ),
+                          SizedBox(height: isTablet ? 16 : 12),
+                          Text(
+                            'Unable to load orders',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w600,
+                              fontSize: isTablet ? 18 : 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+            side: BorderSide(color: Colors.grey[200]!),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(isTablet ? 24 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Recent Orders',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isTablet ? 22 : 18,
+                      ),
+                    ),
+                    if (orderProvider.orders.isNotEmpty)
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const OrdersScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'View All',
+                          style: TextStyle(fontSize: isTablet ? 15 : 14),
+                        ),
+                      ),
+                  ],
+                ),
+                
+                SizedBox(height: isTablet ? 20 : 16),
+                
+                if (orderProvider.isLoading)
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(isTablet ? 36 : 28),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                      ),
+                    ),
+                  )
+                else if (recentOrders.isEmpty)
+                  Container(
+                    padding: EdgeInsets.all(isTablet ? 36 : 28),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(isTablet ? 18 : 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.shopping_bag_outlined,
+                              size: isTablet ? 56 : 48,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                          SizedBox(height: isTablet ? 16 : 12),
+                          Text(
+                            'No orders yet',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w600,
+                              fontSize: isTablet ? 18 : 16,
+                            ),
+                          ),
+                          SizedBox(height: isTablet ? 6 : 4),
+                          Text(
+                            'Your order history will appear here',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[500],
+                              fontSize: isTablet ? 15 : 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Column(
+                    children: recentOrders.map((order) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: isTablet ? 16 : 12),
+                        child: _buildOrderCard(context, order, isTablet),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOrderCard(BuildContext context, order, bool isTablet) {
+    Color statusColor;
+    IconData statusIcon;
+    
+    switch (order.status.toLowerCase()) {
+      case 'delivered':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'shipped':
+        statusColor = Colors.blue;
+        statusIcon = Icons.local_shipping;
+        break;
+      case 'processing':
+        statusColor = Colors.orange;
+        statusIcon = Icons.hourglass_empty;
+        break;
+      case 'cancelled':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.pending;
+    }
+    
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const OrdersScreen(),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.all(isTablet ? 18 : 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recent Orders',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: isTablet ? 22 : 18,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const OrdersScreen(),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    'View All',
-                    style: TextStyle(fontSize: isTablet ? 15 : 14),
-                  ),
-                ),
-              ],
-            ),
-            
-            SizedBox(height: isTablet ? 20 : 16),
-            
-            Container(
-              padding: EdgeInsets.all(isTablet ? 36 : 28),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Center(
-                child: Column(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(isTablet ? 18 : 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.shopping_bag_outlined,
-                        size: isTablet ? 56 : 48,
-                        color: Colors.grey[400],
-                      ),
-                    ),
-                    SizedBox(height: isTablet ? 16 : 12),
                     Text(
-                      'No orders yet',
+                      order.orderNumber,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w600,
-                        fontSize: isTablet ? 18 : 16,
+                        fontWeight: FontWeight.bold,
+                        fontSize: isTablet ? 17 : 15,
                       ),
                     ),
-                    SizedBox(height: isTablet ? 6 : 4),
+                    SizedBox(height: isTablet ? 4 : 2),
                     Text(
-                      'Your order history will appear here',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[500],
-                        fontSize: isTablet ? 15 : 14,
+                      _formatOrderDate(order.createdAt),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                        fontSize: isTablet ? 13 : 12,
                       ),
                     ),
                   ],
                 ),
-              ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 12 : 10,
+                    vertical: isTablet ? 6 : 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        statusIcon,
+                        size: isTablet ? 16 : 14,
+                        color: statusColor,
+                      ),
+                      SizedBox(width: isTablet ? 6 : 4),
+                      Text(
+                        order.status.toUpperCase(),
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: isTablet ? 12 : 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (order.items.isNotEmpty) ...[
+              SizedBox(height: isTablet ? 12 : 10),
+              ...order.items.take(2).map((item) {
+                return Padding(
+                  padding: EdgeInsets.only(bottom: isTablet ? 6 : 4),
+                  child: Row(
+                    children: [
+                      if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                        Container(
+                          width: isTablet ? 50 : 40,
+                          height: isTablet ? 50 : 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[200],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              item.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.image,
+                                  size: isTablet ? 24 : 20,
+                                  color: Colors.grey[400],
+                                );
+                              },
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: isTablet ? 50 : 40,
+                          height: isTablet ? 50 : 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[200],
+                          ),
+                          child: Icon(
+                            Icons.image,
+                            size: isTablet ? 24 : 20,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      SizedBox(width: isTablet ? 12 : 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.productName,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontSize: isTablet ? 14 : 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            SizedBox(height: isTablet ? 2 : 1),
+                            Text(
+                              'Qty: ${item.quantity} × ₹${item.price.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                                fontSize: isTablet ? 12 : 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              if (order.items.length > 2)
+                Padding(
+                  padding: EdgeInsets.only(top: isTablet ? 4 : 2),
+                  child: Text(
+                    '+ ${order.items.length - 2} more item${order.items.length - 2 > 1 ? 's' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.primaryColor,
+                      fontSize: isTablet ? 12 : 11,
+                    ),
+                  ),
+                ),
+            ],
+            SizedBox(height: isTablet ? 12 : 10),
+            Divider(height: 1),
+            SizedBox(height: isTablet ? 10 : 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: isTablet ? 15 : 14,
+                  ),
+                ),
+                Text(
+                  '₹${order.totalAmount.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                    fontSize: isTablet ? 18 : 16,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatOrderDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return '$weeks week${weeks > 1 ? 's' : ''} ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
   }
 
   Widget _buildLogoutButton(BuildContext context, UserProvider userProvider, bool isTablet) {
