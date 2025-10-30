@@ -17,7 +17,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
 
   @override
@@ -38,7 +37,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _phoneController.text = user.phone ??'';
       _addressController.text = user.address ?? '';
       _cityController.text = user.city ?? '';
-      _stateController.text = user.state ?? '';
       _zipCodeController.text = user.zipCode ?? '';
     }
   }
@@ -51,7 +49,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     _cityController.dispose();
-    _stateController.dispose();
     _zipCodeController.dispose();
     super.dispose();
   }
@@ -68,22 +65,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
-        // actions: [
-        //   Consumer<UserProvider>(
-        //     builder: (context, userProvider, child) {
-        //       return TextButton(
-        //         onPressed: userProvider.isLoading ? null : _saveProfile,
-        //         child: Text(
-        //           'Save',
-        //           style: TextStyle(
-        //             color: Colors.white,
-        //             fontWeight: FontWeight.bold,
-        //           ),
-        //         ),
-        //       );
-        //     },
-        //   ),
-        // ],
       ),
       body: Consumer<UserProvider>(
         builder: (context, userProvider, child) {
@@ -180,7 +161,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Row(
                     children: [
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: TextFormField(
                           controller: _cityController,
                           decoration: const InputDecoration(
@@ -191,23 +172,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: TextFormField(
-                          controller: _stateController,
-                          decoration: const InputDecoration(
-                            labelText: 'State',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
+                        flex: 2,
                         child: TextFormField(
                           controller: _zipCodeController,
                           decoration: const InputDecoration(
                             labelText: 'ZIP Code',
                             border: OutlineInputBorder(),
+                            counterText: '', // Hide character counter
                           ),
                           keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty && value.length != 6) {
+                              return 'ZIP must be 6 digits';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ],
@@ -228,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        minimumSize: const Size(200, 50), // Standard minimum size
+                        minimumSize: const Size(200, 50),
                       ),
                       child: userProvider.isLoading
                           ? const SizedBox(
@@ -262,7 +242,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        minimumSize: const Size(200, 50), // Standard minimum size
+                        minimumSize: const Size(200, 50),
                       ),
                       child: const Text(
                         'Change Password',
@@ -293,7 +273,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         phone: _phoneController.text,
         address: _addressController.text,
         city: _cityController.text,
-        state: _stateController.text,
+        state: null, // Removed state field
         zipCode: _zipCodeController.text,
       );
 
@@ -482,7 +462,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    minimumSize: const Size(200, 50), // Standard minimum size
+                    minimumSize: const Size(200, 50),
                   ),
                   child: const Text(
                     'Change Password',
