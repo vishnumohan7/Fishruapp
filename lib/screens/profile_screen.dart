@@ -10,13 +10,13 @@ import 'notifications_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
+ 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isTablet = size.width > 600;
     final padding = isTablet ? 24.0 : 16.0;
-
+     
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -110,6 +110,7 @@ class ProfileScreen extends StatelessWidget {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
+        
         borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
         side: BorderSide(color: Colors.grey[200]!),
       ),
