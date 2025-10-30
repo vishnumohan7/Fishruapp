@@ -5,6 +5,7 @@ import '../models/product.dart';
 import '../services/shopify_service.dart';
 import '../services/shopify_graphql_service.dart';
 import '../constants/app_constants.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
@@ -124,7 +125,7 @@ class CartProvider extends ChangeNotifier {
           }).toList(),
         }).toList();
 
-        const createCartMutation = '''
+        const createCartMutation = r'''
           mutation cartCreate($input: CartInput!) {
             cartCreate(input: $input) {
               cart {

@@ -26,8 +26,7 @@ class UserProvider extends ChangeNotifier {
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     try {
-      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}
-$').hasMatch(email)) {
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
         _error = 'Please enter a valid email address';
         return false;
       }
