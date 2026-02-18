@@ -2,16 +2,42 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/notification.dart';
+import '../services/push_notification_service.dart';
 
 class NotificationProvider with ChangeNotifier {
   List<NotificationItem> _notifications = [];
   bool _isLoading = false;
   String? _error;
+  final PushNotificationService _pushService = PushNotificationService();
 
   List<NotificationItem> get notifications => _notifications;
   bool get isLoading => _isLoading;
   String? get error => _error;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
+  String? get fcmToken => _pushService.fcmToken;
+
+  /// Initialize push notifications
+  Future<void> initializePushNotifications() async {
+    try {
+      await _pushService.initialize();
+      
+      // Set up callbacks
+      _pushService.onNotificationReceived = (notification) {
+        addNotification(notification);
+      };
+      
+      _pushService.onNotificationTapped = (notification) {
+        // Handle notification tap - you can navigate to specific screens here
+        markAsRead(notification.id);
+      };
+      
+      debugPrint('Push notifications initialized');
+    } catch (e) {
+      debugPrint('Error initializing push notifications: $e');
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
 
   Future<void> loadNotifications() async {
     _isLoading = true;
@@ -118,6 +144,21 @@ class NotificationProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  /// Subscribe to notification topics
+  Future<void> subscribeToTopic(String topic) async {
+    await _pushService.subscribeToTopic(topic);
+  }
+
+  /// Unsubscribe from notification topics
+  Future<void> unsubscribeFromTopic(String topic) async {
+    await _pushService.unsubscribeFromTopic(topic);
+  }
+
+  /// Delete FCM token (for logout)
+  Future<void> deleteFCMToken() async {
+    await _pushService.deleteToken();
   }
 
   // Mock notifications for demonstration

@@ -15,10 +15,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
-  final _zipCodeController = TextEditingController();
 
   @override
   void initState() {
@@ -36,10 +32,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _lastNameController.text = user.lastName ?? '';
       _emailController.text = user.email;
       _phoneController.text = user.phone ??'';
-      _addressController.text = user.address ?? '';
-      _cityController.text = user.city ?? '';
-      _stateController.text = user.state ?? '';
-      _zipCodeController.text = user.zipCode ?? '';
     }
   }
 
@@ -49,10 +41,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
-    _zipCodeController.dispose();
     super.dispose();
   }
 
@@ -157,62 +145,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     keyboardType: TextInputType.phone,
                   ),
                   const SizedBox(height: 32),
-
-                  // Address Information Section
-                  const Text(
-                    'Address Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  TextFormField(
-                    controller: _addressController,
-                    decoration: const InputDecoration(
-                      labelText: 'Street Address',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _cityController,
-                          decoration: const InputDecoration(
-                            labelText: 'City',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _stateController,
-                          decoration: const InputDecoration(
-                            labelText: 'State',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _zipCodeController,
-                          decoration: const InputDecoration(
-                            labelText: 'ZIP Code',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
                
                   // Save Button - Standard Size
                   Center(
@@ -248,31 +180,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Change Password Button - Standard Size
-                  Center(
-                    child: OutlinedButton(
-                      onPressed: _changePassword,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 48,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        minimumSize: const Size(200, 50), // Standard minimum size
-                      ),
-                      child: const Text(
-                        'Change Password',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -291,10 +198,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         lastName: _lastNameController.text.trim().isNotEmpty ? _lastNameController.text.trim() : null,
         email: _emailController.text,
         phone: _phoneController.text,
-        address: _addressController.text,
-        city: _cityController.text,
-        state: _stateController.text,
-        zipCode: _zipCodeController.text,
       );
 
       try {
@@ -321,14 +224,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  void _changePassword() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const ChangePasswordScreen(),
-      ),
-    );
-  }
 }
 
 class ChangePasswordScreen extends StatefulWidget {

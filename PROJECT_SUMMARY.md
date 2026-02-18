@@ -33,7 +33,7 @@ Your Flutter e-commerce app with Shopify integration is now ready! Here's what w
 ### 1. **Configure Your Shopify Store**
 Update `lib/constants/app_constants.dart` with your store details:
 ```dart
-static const String storeDomain = 'fishru.com';
+static const String storeDomain = 'freshbe.in';
 static const String shopifyAccessToken = '1ede899f8b2f224df8e386ccd3eb8f95';
 static const String shopifyApiVersion = '2024-07';
 ```

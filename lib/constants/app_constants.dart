@@ -37,11 +37,21 @@ class AppConstants {
   static const String cartEndpoint = '/cart.json';
   
   // Backend Configuration
-  static String get backendBaseUrl => dotenv.env['BACKEND_BASE_URL'] ?? 'https://api.fishru.com';
+  // Custom Backend API Base URL
+  static const String customBackendBaseUrl = 'http://freshbeapi-env.eba-tyf66ae8.us-east-1.elasticbeanstalk.com';
+  static const String customBackendItemsEndpoint = '/api/public/items';
+  static const String customBackendSearchItemsEndpoint = '/api/items/search';
+  static const String customBackendCategoriesEndpoint = '/api/public/categories';
+  static const String customBackendOtpSaveEndpoint = '/api/public/otp/save';
+  static const String customBackendVerifyOtpEndpoint = '/api/auth/verify-otp';
+  static const String customBackendTimeEndpoint = '/api/public/time';
+  
+  // Legacy Backend Configuration (Shopify-related)
+  static String get backendBaseUrl => dotenv.env['BACKEND_BASE_URL'] ?? 'https://api.freshbe.in';
   static const String createCodOrderPath = '/api/shopify/cod-order';
   
   // App Configuration
-  static const String appName = 'Fishru';
+  static const String appName = 'Freshbe';
   static const String appVersion = '1.0.0';
   
   // Development Configuration

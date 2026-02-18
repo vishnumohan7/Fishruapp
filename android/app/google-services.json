@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "237806922916",
+    "project_id": "freshbe-22e71",
+    "storage_bucket": "freshbe-22e71.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:237806922916:android:bde7eda8160270feeb8a31",
+        "android_client_info": {
+          "package_name": "com.dsg.fishru"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDo56idBPajdCVSRPeDxEkbi9ToT9xUFC4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

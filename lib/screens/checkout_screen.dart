@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 import '../providers/app_providers.dart';
+import '../providers/store_credit_provider.dart';
+import '../providers/address_provider.dart';
+import '../providers/order_provider.dart';
+import '../models/saved_address.dart';
 import '../utils/app_theme.dart';
-import '../services/shopify_service.dart';
 import '../constants/app_constants.dart';
-import 'webview_screen.dart';
+import '../services/backend_service.dart';
+import '../widgets/custom_textfield.dart';
+import 'home_screen.dart';
 import 'orders_screen.dart';
+import 'auth_screen.dart';
+import 'add_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -19,12 +28,146 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _error;
   List<Map<String, dynamic>> _availablePaymentOptions = [];
   bool _paymentOptionsLoading = true;
+  bool _useStoreCredit = false;
+  
+  // Checkout form fields
+  SavedAddress? _selectedAddress;
+  String? _selectedArea;
+  String? _selectedDeliverySlot;
+  String? _comments = '';
+  bool _isLoadingAreas = false;
+  List<Map<String, dynamic>> _areas = [];
+  final TextEditingController _commentsController = TextEditingController();
+  
+  // Delivery slots
+  static const List<Map<String, String>> _deliverySlots = [
+    {'id': 'Morning', 'label': 'Morning', 'time': '9:30 am – 12:00 pm'},
+    {'id': 'Evening', 'label': 'Evening', 'time': '3:00 pm – 7:30 pm'},
+  ];
+  
+  // Server time and slot availability
+  DateTime? _serverTime;
+  bool _isToday = true; // Whether to show "Today" or "Tomorrow"
+  List<Map<String, String>> _availableSlots = List.from(_deliverySlots); // Initialize with all slots
 
   @override
   void initState() {
     super.initState();
     _loadPaymentOptions();
+    _loadStoreCredit();
+    _loadAreas();
+    _loadDefaultAddress();
+    _loadServerTimeAndCalculateSlots();
   }
+  
+  @override
+  void dispose() {
+    _commentsController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _loadAreas() async {
+    setState(() {
+      _isLoadingAreas = true;
+    });
+    
+    try {
+      final backendService = BackendService();
+      final areas = await backendService.getAreas();
+      setState(() {
+        _areas = areas;
+        _isLoadingAreas = false;
+      });
+    } catch (e) {
+      print('Error loading areas: $e');
+      setState(() {
+        _isLoadingAreas = false;
+      });
+    }
+  }
+  
+  Future<void> _loadDefaultAddress() async {
+    final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+    if (addressProvider.defaultAddress != null) {
+      setState(() {
+        _selectedAddress = addressProvider.defaultAddress;
+        // Try to set area from address
+        if (_selectedAddress!.province.isNotEmpty) {
+          _selectedArea = _selectedAddress!.province;
+        } else if (_selectedAddress!.city.isNotEmpty) {
+          _selectedArea = _selectedAddress!.city;
+        }
+      });
+    }
+  }
+
+  /// Fetch server time and calculate available delivery slots
+  Future<void> _loadServerTimeAndCalculateSlots() async {
+    try {
+      final backendService = BackendService();
+      final serverTime = await backendService.getServerTime();
+      
+      setState(() {
+        _serverTime = serverTime;
+        _calculateAvailableSlots(serverTime);
+      });
+    } catch (e) {
+      print('Error loading server time: $e');
+      // Fallback to local time
+      setState(() {
+        _serverTime = DateTime.now();
+        _calculateAvailableSlots(DateTime.now());
+      });
+    }
+  }
+
+  /// Calculate available slots based on current time
+  void _calculateAvailableSlots(DateTime currentTime) {
+    final hour = currentTime.hour;
+    final minute = currentTime.minute;
+    final timeVal = hour + (minute / 60.0); // Convert to decimal hours (e.g., 10:30 = 10.5)
+    
+    List<Map<String, String>> available = [];
+    bool isToday = true;
+    
+    // Before 10:00 AM: Both slots available for Today
+    if (timeVal < 10.0) {
+      available = List.from(_deliverySlots);
+      isToday = true;
+    }
+    // Between 10:00 AM and 11:30 AM: Only Evening slot available for Today
+    else if (timeVal < 11.5) {
+      available = [_deliverySlots[1]]; // Only Evening slot
+      isToday = true;
+    }
+    // After 11:30 AM: No Today slots, switch to Tomorrow
+    else {
+      available = List.from(_deliverySlots); // Both slots for Tomorrow
+      isToday = false;
+    }
+    
+    _availableSlots = available;
+    _isToday = isToday;
+    
+    // Auto-select first available slot if none selected
+    if (_selectedDeliverySlot == null && available.isNotEmpty) {
+      _selectedDeliverySlot = available[0]['id'];
+    }
+  }
+
+
+  Future<void> _loadStoreCredit() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final storeCreditProvider = Provider.of<StoreCreditProvider>(context, listen: false);
+    
+    if (userProvider.user != null) {
+      await storeCreditProvider.fetchStoreCredit(
+        userProvider.user!.id,
+        customerEmail: userProvider.user!.email,
+      );
+    }
+  }
+
 
   Future<void> _loadPaymentOptions() async {
     if (AppConstants.useMockData) {
@@ -40,58 +183,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     try {
-      final shopifyService = ShopifyService();
-      final paymentSettings = await shopifyService.getPaymentSettings();
-      
+      // Use default payment options (no Shopify API call)
       final List<Map<String, dynamic>> availableOptions = [];
       
-      if (paymentSettings != null) {
-        // Check for card payments (if acceptedCardBrands is available)
-        final acceptedCards = paymentSettings['acceptedCardBrands'] as List?;
-        if (acceptedCards != null && acceptedCards.isNotEmpty) {
+      // Add default payment options - Cash on Delivery only
           availableOptions.add({
-            'type': 'card',
-            'name': 'Credit/Debit Cards',
-            'icon': Icons.credit_card,
-          });
-        }
-        
-        // Check for digital wallets
-        final digitalWallets = paymentSettings['supportedDigitalWallets'] as List?;
-        if (digitalWallets != null && digitalWallets.isNotEmpty) {
-          // Check for Apple Pay
-          if (digitalWallets.any((wallet) => wallet.toString().toLowerCase().contains('apple'))) {
-            availableOptions.add({
-              'type': 'apple_pay',
-              'name': 'Apple Pay',
-              'icon': Icons.apple,
-            });
-          }
-          
-          // Check for Google Pay
-          if (digitalWallets.any((wallet) => wallet.toString().toLowerCase().contains('google'))) {
-            availableOptions.add({
-              'type': 'google_pay',
-              'name': 'Google Pay',
-              'icon': Icons.account_balance_wallet,
-            });
-          }
-          
-          // Check for PayPal
-          if (digitalWallets.any((wallet) => wallet.toString().toLowerCase().contains('paypal'))) {
-            availableOptions.add({
-              'type': 'paypal',
-              'name': 'PayPal',
-              'icon': Icons.paypal,
-            });
-          }
-        }
-      }
-      
-      // Always include Cash on Delivery as a fallback (or remove if not needed)
-      // You can remove this if COD is not available in your store
-      availableOptions.add({
-        'type': 'cash_on_delivery',
+        'type': 'cod',
         'name': 'Cash on Delivery',
         'icon': Icons.money,
       });
@@ -105,8 +202,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Fallback to default options on error
       setState(() {
         _availablePaymentOptions = [
-          {'type': 'card', 'name': 'Credit/Debit Cards', 'icon': Icons.credit_card},
-          {'type': 'cash_on_delivery', 'name': 'Cash on Delivery', 'icon': Icons.money},
+          {'type': 'cod', 'name': 'Cash on Delivery', 'icon': Icons.money},
         ];
         _paymentOptionsLoading = false;
       });
@@ -279,6 +375,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               isDesktop,
                               isTablet,
                             ),
+                            // Store Credit Discount
+                            Consumer2<UserProvider, StoreCreditProvider>(
+                              builder: (context, userProvider, storeCreditProvider, child) {
+                                if (!_useStoreCredit || !storeCreditProvider.hasBalance) {
+                                  return const SizedBox.shrink();
+                                }
+                                
+                                final storeCreditAmount = _getStoreCreditAmount(
+                                  cartProvider.totalPrice,
+                                  storeCreditProvider.balance,
+                                );
+                                
+                                return Column(
+                                  children: [
+                                    SizedBox(height: isDesktop ? 12 : 10),
+                                    _buildPriceRow(
+                                      'Store Credit',
+                                      '-₹${storeCreditAmount.toStringAsFixed(2)}',
+                                      isDesktop,
+                                      isTablet,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                             SizedBox(height: isDesktop ? 16 : 12),
                             Divider(height: isDesktop ? 24 : 20),
                             SizedBox(height: isDesktop ? 12 : 8),
@@ -292,15 +413,435 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                Consumer2<UserProvider, StoreCreditProvider>(
+                                  builder: (context, userProvider, storeCreditProvider, child) {
+                                    final total = _getFinalTotal(cartProvider.totalPrice, storeCreditProvider);
+                                    return Text(
+                                      '₹${total.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    SizedBox(height: isDesktop ? 20 : 16),
+                    
+                    // Store Credit Option
+                    Consumer2<UserProvider, StoreCreditProvider>(
+                      builder: (context, userProvider, storeCreditProvider, child) {
+                        if (userProvider.user == null || !storeCreditProvider.hasBalance) {
+                          return const SizedBox.shrink();
+                        }
+                        
+                        return Card(
+                          elevation: isDesktop ? 4 : 2,
+                          child: Padding(
+                            padding: EdgeInsets.all(horizontalPadding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.account_balance_wallet,
+                                          color: AppTheme.primaryColor,
+                                          size: isDesktop ? 24 : (isTablet ? 22 : 20),
+                                        ),
+                                        SizedBox(width: isDesktop ? 12 : 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Store Credit',
+                                              style: TextStyle(
+                                                fontSize: isDesktop ? 16 : (isTablet ? 15 : 14),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Available: ₹${storeCreditProvider.balance.toStringAsFixed(2)}',
+                                              style: TextStyle(
+                                                fontSize: isDesktop ? 13 : (isTablet ? 12 : 11),
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    Switch(
+                                      value: _useStoreCredit,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _useStoreCredit = value;
+                                        });
+                                      },
+                                      activeColor: AppTheme.primaryColor,
+                                    ),
+                                  ],
+                                ),
+                                if (_useStoreCredit) ...[
+                                  SizedBox(height: isDesktop ? 12 : 8),
+                                  Container(
+                                    padding: EdgeInsets.all(isDesktop ? 12 : 10),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.info_outline,
+                                          size: isDesktop ? 18 : 16,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                        SizedBox(width: isDesktop ? 8 : 6),
+                                        Expanded(
+                                          child: Text(
+                                            '₹${_getStoreCreditAmount(cartProvider.totalPrice, storeCreditProvider.balance).toStringAsFixed(2)} will be applied to your order',
+                                            style: TextStyle(
+                                              fontSize: isDesktop ? 13 : (isTablet ? 12 : 11),
+                                              color: AppTheme.primaryColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    SizedBox(height: isDesktop ? 20 : 16),
+                    
+                    // Address Selection
+                    Card(
+                      elevation: isDesktop ? 4 : 2,
+                      child: Padding(
+                        padding: EdgeInsets.all(horizontalPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
                                 Text(
-                                  '₹${cartProvider.totalPrice.toStringAsFixed(2)}',
+                                  'Delivery Address',
                                   style: TextStyle(
-                                    fontSize: isDesktop ? 20 : (isTablet ? 18 : 16),
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor,
+                                    fontSize: isDesktop ? 18 : (isTablet ? 17 : 16),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const AddAddressScreen(),
+                                      ),
+                                    );
+                                    if (result == true) {
+                                      final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+                                      await addressProvider.refreshAddresses();
+                                      _loadDefaultAddress();
+                                    }
+                                  },
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Add New'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.primaryColor,
                                   ),
                                 ),
                               ],
+                            ),
+                            SizedBox(height: isDesktop ? 12 : 8),
+                            Consumer<AddressProvider>(
+                              builder: (context, addressProvider, child) {
+                                if (addressProvider.savedAddresses.isEmpty) {
+                                  return Column(
+                                    children: [
+                                      const Text('No saved addresses. Please add an address.'),
+                                      const SizedBox(height: 12),
+                                      ElevatedButton.icon(
+                                        onPressed: () async {
+                                          final result = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => const AddAddressScreen(),
+                                            ),
+                                          );
+                                          if (result == true) {
+                                            await addressProvider.refreshAddresses();
+                                            _loadDefaultAddress();
+                                          }
+                                        },
+                                        icon: const Icon(Icons.add),
+                                        label: const Text('Add Address'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryColor,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+                                
+                                return Column(
+                                  children: addressProvider.savedAddresses.map((address) {
+                                    final isSelected = _selectedAddress?.id == address.id;
+                                    return InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedAddress = address;
+                                          if (address.province.isNotEmpty) {
+                                            _selectedArea = address.province;
+                                          } else if (address.city.isNotEmpty) {
+                                            _selectedArea = address.city;
+                                          }
+                                        });
+                                      },
+                                      child: Container(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: isSelected 
+                                                ? AppTheme.primaryColor 
+                                                : Colors.grey[300]!,
+                                            width: isSelected ? 2 : 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(8),
+                                          color: isSelected 
+                                              ? AppTheme.primaryColor.withOpacity(0.05)
+                                              : Colors.grey[50],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Radio<SavedAddress>(
+                                              value: address,
+                                              groupValue: _selectedAddress,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _selectedAddress = value;
+                                                  if (address.province.isNotEmpty) {
+                                                    _selectedArea = address.province;
+                                                  } else if (address.city.isNotEmpty) {
+                                                    _selectedArea = address.city;
+                                                  }
+                                                });
+                                              },
+                                              activeColor: AppTheme.primaryColor,
+                                            ),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    address.fullName,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    address.formattedAddress,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    SizedBox(height: isDesktop ? 20 : 16),
+                    
+                    // Area Selection
+                    Card(
+                      elevation: isDesktop ? 4 : 2,
+                      child: Padding(
+                        padding: EdgeInsets.all(horizontalPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Delivery Area',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 18 : (isTablet ? 17 : 16),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: isDesktop ? 12 : 8),
+                            _isLoadingAreas
+                                ? const Center(child: CircularProgressIndicator())
+                                : DropdownButtonFormField<String>(
+                                    value: _selectedArea,
+                                    decoration: InputDecoration(
+                                      hintText: 'Select Area',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      filled: true,
+                                      fillColor: Colors.grey[50],
+                                    ),
+                                    items: _areas.map((area) {
+                                      final areaName = area is Map 
+                                          ? (area['name'] ?? area['area_name'] ?? area['id']?.toString() ?? '')
+                                          : area.toString();
+                                      final areaId = area is Map 
+                                          ? (area['id'] ?? area['area_id']?.toString() ?? '')
+                                          : area.toString();
+                                      
+                                      return DropdownMenuItem<String>(
+                                        value: areaId.toString(),
+                                        child: Text(areaName.toString()),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedArea = value;
+                                      });
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    SizedBox(height: isDesktop ? 20 : 16),
+                    
+                    // Delivery Slot Selection
+                    Card(
+                      elevation: isDesktop ? 4 : 2,
+                      child: Padding(
+                        padding: EdgeInsets.all(horizontalPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Delivery Slot',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 18 : (isTablet ? 17 : 16),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (_serverTime != null) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _isToday ? Colors.green[100] : Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      _isToday ? 'Today' : 'Tomorrow',
+                                      style: TextStyle(
+                                        fontSize: isDesktop ? 12 : (isTablet ? 11 : 10),
+                                        fontWeight: FontWeight.w600,
+                                        color: _isToday ? Colors.green[800] : Colors.blue[800],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            SizedBox(height: isDesktop ? 12 : 8),
+                            DropdownButtonFormField<String>(
+                              value: _selectedDeliverySlot,
+                              decoration: InputDecoration(
+                                hintText: 'Select Delivery Slot',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              ),
+                              isExpanded: true,
+                              items: _availableSlots.isEmpty 
+                                  ? _deliverySlots.map((slot) {
+                                      return DropdownMenuItem<String>(
+                                        value: slot['id'],
+                                        child: Text(
+                                          '${slot['label']} (${slot['time']})',
+                                          style: const TextStyle(fontSize: 14),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList()
+                                  : _availableSlots.map((slot) {
+                                      return DropdownMenuItem<String>(
+                                        value: slot['id'],
+                                        child: Text(
+                                          '${slot['label']} (${slot['time']})',
+                                          style: const TextStyle(fontSize: 14),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedDeliverySlot = value;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    SizedBox(height: isDesktop ? 20 : 16),
+                    
+                    // Comments
+                    Card(
+                      elevation: isDesktop ? 4 : 2,
+                      child: Padding(
+                        padding: EdgeInsets.all(horizontalPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Additional Comments (Optional)',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 18 : (isTablet ? 17 : 16),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: isDesktop ? 12 : 8),
+                            CustomTextField(
+                              controller: _commentsController,
+                              hintText: 'Any special instructions...',
+                              maxLines: 3,
                             ),
                           ],
                         ),
@@ -439,20 +980,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
-                              : FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'Proceed to Checkout - ₹${cartProvider.totalPrice.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isDesktop ? 18 : (isTablet ? 16 : 15),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                              : Consumer2<UserProvider, StoreCreditProvider>(
+                                  builder: (context, userProvider, storeCreditProvider, child) {
+                                    final total = _getFinalTotal(cartProvider.totalPrice, storeCreditProvider);
+                                    return FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        'Place Order - ₹${total.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: isDesktop ? 18 : (isTablet ? 16 : 15),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                         ),
                       ),
                     ),
+                  ),
+                ),
+              ),
+              
+              // Full-screen loading overlay when auto-login is in progress
+              if (_isLoading)
+                Container(
+                  color: Colors.black.withOpacity(0.5),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Preparing checkout...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                   ),
                 ),
               ),
@@ -502,130 +1073,506 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  double _getStoreCreditAmount(double cartTotal, double balance) {
+    if (!_useStoreCredit) return 0.0;
+    return balance > cartTotal ? cartTotal : balance;
+  }
+
+  double _getFinalTotal(double cartTotal, StoreCreditProvider storeCreditProvider) {
+    if (!_useStoreCredit || !storeCreditProvider.hasBalance) {
+      return cartTotal;
+    }
+    final storeCreditAmount = _getStoreCreditAmount(cartTotal, storeCreditProvider.balance);
+    return cartTotal - storeCreditAmount;
+  }
+
   Future<void> _proceedToCheckout(CartProvider cartProvider) async {
+    // Check if user is logged in
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Get user mobile number
+      final prefs = await SharedPreferences.getInstance();
+      final userMobile = prefs.getString('user_mobile');
+      
+      if (userMobile == null || userMobile.isEmpty) {
+        throw Exception('User mobile number not found. Please login again.');
+      }
+      
+      // Check if user exists in backend
+      print('🔍 Checkout: Checking if user exists...');
+      final backendService = BackendService();
+      final userCheckResult = await backendService.checkUserExists(userMobile);
+      final userExists = userCheckResult['userexist'] == true;
+      
+      print('🔍 Checkout: User exists: $userExists');
+      
+      // If user doesn't exist, prompt to add address
+      if (!userExists) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          
+          final shouldAddAddress = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text('New User'),
+              content: const Text(
+                'You need to add a delivery address to continue with checkout. This will create your profile.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Add Address'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldAddAddress == true && mounted) {
+            // Navigate to add address screen
+            final addressResult = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddAddressScreen(),
+              ),
+            );
+            
+            if (addressResult == true) {
+              // Address was saved, which creates the user profile
+              // Refresh addresses and retry checkout
+              await addressProvider.refreshAddresses();
+              await Future.delayed(const Duration(milliseconds: 500));
+              
+              if (mounted) {
+                // Retry checkout after address is saved
+                _proceedToCheckout(cartProvider);
+              }
+            }
+          }
+          return;
+        }
+      }
+      
+      // Verify JWT token is available (for custom backend)
+      String? jwtToken = prefs.getString('jwt_token');
+      
+      // If JWT token is not available, user needs to login again
+      if (jwtToken == null || jwtToken.isEmpty) {
+        print('⚠️ Checkout: JWT token not available');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          
+          // Show error and redirect to login
+          final shouldLogin = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text('Session Expired'),
+              content: const Text(
+                'Session expired. Please login to place order.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Login'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldLogin == true && mounted) {
+            final loginResult = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              ),
+            );
+            
+            if (loginResult == true) {
+              // Retry checkout after login
+              await Future.delayed(const Duration(milliseconds: 300));
+              if (mounted) {
+                _proceedToCheckout(cartProvider);
+              }
+            }
+          }
+          return;
+        }
+      } else {
+        print('✅ Checkout: JWT token verified and available');
+      }
+    } catch (e) {
+      print('❌ Checkout: Failed: $e');
+      if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to prepare checkout. Please try again.'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+          return;
+        }
+    
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
-    try {
-      final checkoutUrl = await cartProvider.createCheckoutUrl();
-      
-      if (!mounted) return;
-      
-      final cartItemCountBefore = cartProvider.itemCount;
-      final cartTotalBefore = cartProvider.totalPrice;
-      
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WebViewScreen(
-            url: checkoutUrl,
-            title: 'Checkout',
-          ),
+    // Validate required fields
+    if (_selectedAddress == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a delivery address'),
+          backgroundColor: Colors.red,
         ),
       );
-
-      // Check if result is true OR if cart was cleared (indicating successful checkout)
-      final cartItemCountAfter = cartProvider.itemCount;
-      final isSuccess = result == true;
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    if (_selectedArea == null || _selectedArea!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a delivery area'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    if (_selectedDeliverySlot == null || _selectedDeliverySlot!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a delivery slot'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    if (cartProvider.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your cart is empty'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    try {
+      // Get user info
+      final prefs = await SharedPreferences.getInstance();
+      final userMobile = prefs.getString('user_mobile');
+      final userId = prefs.getString('user_id');
       
-      print('Checkout result: $result');
-      print('Cart before checkout: $cartItemCountBefore items');
-      print('Cart after checkout: $cartItemCountAfter items');
-      print('Is success (result): $isSuccess');
-
-      // Always redirect to orders if WebView returned true
-      if (result == true) {
-        if (mounted) {
-          // Create order record if cart had items
-          if (cartItemCountBefore > 0) {
-            await _createOrderFromCart(context, cartProvider);
-          }
-          
-          // Clear the cart if not already cleared
-          if (cartProvider.itemCount > 0) {
-            cartProvider.clearCart();
-          }
-          
-          // Show success message
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Order placed successfully!'),
-                backgroundColor: AppTheme.successColor,
-                duration: Duration(seconds: 2),
-              ),
-            );
-            
-            // Wait a moment for the snackbar to show, then redirect
-            await Future.delayed(const Duration(milliseconds: 500));
-            
-            if (mounted) {
-              // Navigate to orders screen, removing all previous routes (including checkout, cart, etc.)
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const OrdersScreen(),
-                ),
-                (route) => false, // Remove ALL previous routes
-              );
-            }
-          }
+      if (userMobile == null || userMobile.isEmpty) {
+        throw Exception('User mobile number not found. Please login again.');
+      }
+      
+      // Prepare order items - use numeric item_id from cart items
+      final orderItems = cartProvider.items.map((item) {
+        // Use numericItemId if available, otherwise try to parse productId or variantId
+        int? itemId = item.numericItemId;
+        
+        if (itemId == null) {
+          // Fallback: try to parse productId or variantId
+          itemId = int.tryParse(item.productId) ?? int.tryParse(item.variantId ?? '');
         }
+        
+        if (itemId == null || itemId == 0) {
+          throw Exception('Invalid item_id for product: ${item.title}. Please remove and re-add this item.');
+        }
+        
+        return {
+          'item_id': itemId,
+          'quantity': item.quantity,
+          'qty': item.quantity,
+          'amount': item.totalPrice,
+          'item_name': item.title,
+        };
+      }).toList();
+      
+      if (orderItems.isEmpty) {
+        throw Exception('No valid items found in cart. Please add items to cart.');
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Checkout error: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
+      
+      // Calculate discount (store credit if used)
+      double discount = 0.0;
+      final storeCreditProvider = Provider.of<StoreCreditProvider>(context, listen: false);
+      if (_useStoreCredit && storeCreditProvider.hasBalance) {
+        discount = _getStoreCreditAmount(cartProvider.totalPrice, storeCreditProvider.balance);
       }
-    } finally {
+      
+      // Prepare address string
+      final addressString = _selectedAddress!.formattedAddress;
+      
+      // Get area ID (could be string or int from dropdown)
+      final areaId = _selectedArea;
+      
+      // Get delivery slot label (e.g., "Today Morning" or "Tomorrow Evening")
+      final selectedSlot = _availableSlots.isNotEmpty
+          ? _availableSlots.firstWhere(
+              (slot) => slot['id'] == _selectedDeliverySlot,
+              orElse: () => _availableSlots[0],
+            )
+          : _deliverySlots.firstWhere(
+              (slot) => slot['id'] == _selectedDeliverySlot,
+              orElse: () => _deliverySlots[0],
+            );
+      final datePrefix = _isToday ? 'Today' : 'Tomorrow';
+      final deliverySlotLabel = '$datePrefix ${selectedSlot['label']}';
+      
+      // Create order
+      // Only send address_id if it's a valid database ID (not a timestamp fallback)
+      // Timestamps are typically > 1000000000 (milliseconds since epoch)
+      // Database IDs are typically much smaller auto-incrementing integers
+      int? addressId;
+      final parsedAddressId = int.tryParse(_selectedAddress!.id);
+      if (parsedAddressId != null && parsedAddressId > 0 && parsedAddressId < 1000000000) {
+        // Only use if it's a positive integer and looks like a database ID (not a timestamp)
+        // Database IDs are typically < 1 billion, timestamps are > 1 billion
+        addressId = parsedAddressId;
+        print('✅ Using address_id: $addressId');
+      } else {
+        // Invalid address ID or looks like a timestamp - don't send it to avoid foreign key constraint error
+        print('⚠️ Address ID appears to be invalid or a timestamp: ${_selectedAddress!.id}. Not sending address_id to avoid FK constraint.');
+        addressId = null;
+      }
+      
+      // Use backend customer id (orders.customer_id FK expects customers.id, not mobile)
+      final userCheckResult = await BackendService().checkUserExists(userMobile);
+      final backendUser = userCheckResult['user'];
+      final backendCustomerId = backendUser != null
+          ? (backendUser['id'] is int
+              ? backendUser['id'] as int
+              : int.tryParse(backendUser['id']?.toString() ?? ''))
+          : (userId != null ? int.tryParse(userId) : null);
+      if (backendCustomerId == null) {
+        throw Exception('Could not determine customer id. Please login again.');
+      }
+
+      final backendService = BackendService();
+      final orderResult = await backendService.createOrder(
+        customerId: backendCustomerId,
+        paymentMode: 'COD', // Cash on Delivery
+        address: addressString,
+        area: areaId,
+        addressId: addressId,
+        comments: _commentsController.text.trim().isEmpty 
+            ? null 
+            : _commentsController.text.trim(),
+        discount: discount,
+        items: orderItems,
+        deliverySlot: deliverySlotLabel,
+        deliveryStatus: 'Pending',
+      );
+      
+      print('✅ Order created successfully: $orderResult');
+      
+      // Clear cart
+      cartProvider.clearCart();
+      
+      // Mark address as used
+      await addressProvider.markAddressAsUsed(_selectedAddress!.id);
+      
+      // Refresh orders
+      final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+      await orderProvider.fetchOrders();
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order placed successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate to home with Orders tab (shows bottom nav)
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(initialTab: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error creating order: $e');
+      
+      // Check if it's a token/session error (401 or message indicates expired/missing token)
+      bool isTokenError = false;
+      String errorMessage = 'Failed to place order. Please try again.';
+      final errStr = e.toString().toLowerCase();
+      
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode;
+        final responseData = e.response?.data;
+        
+        if (statusCode == 401) {
+          isTokenError = true;
+          errorMessage = 'Session expired. Please login to place order.';
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('jwt_token');
+          await prefs.remove('user_mobile');
+          await prefs.remove('user_id');
+          if (!mounted) return;
+          final userProvider = Provider.of<UserProvider>(context, listen: false);
+          final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+          await addressProvider.clearAddresses();
+          if (!mounted) return;
+          userProvider.logout();
+        } else if (responseData is Map && responseData['message'] != null) {
+          errorMessage = responseData['message'].toString();
+          // Treat backend message as token error if it mentions session/token/auth
+          final msg = errorMessage.toLowerCase();
+          if (msg.contains('token') || msg.contains('session') || msg.contains('expired') ||
+              msg.contains('unauthorized') || msg.contains('authentication') || msg.contains('login')) {
+            isTokenError = true;
+            errorMessage = 'Session expired. Please login to place order.';
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('jwt_token');
+            await prefs.remove('user_mobile');
+            await prefs.remove('user_id');
+            if (!mounted) return;
+            final userProvider = Provider.of<UserProvider>(context, listen: false);
+            final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+            await addressProvider.clearAddresses();
+            if (!mounted) return;
+            userProvider.logout();
+          }
+        }
+      } else if (errStr.contains('401') ||
+          errStr.contains('token') ||
+          errStr.contains('session') ||
+          errStr.contains('expired') ||
+          errStr.contains('unauthorized') ||
+          errStr.contains('authentication') ||
+          errStr.contains('jwt')) {
+        isTokenError = true;
+        errorMessage = 'Session expired. Please login to place order.';
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('jwt_token');
+        await prefs.remove('user_mobile');
+        await prefs.remove('user_id');
+        if (!mounted) return;
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+        await addressProvider.clearAddresses();
+        if (!mounted) return;
+        userProvider.logout();
+      }
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          // Don't set _error when we'll show session-expired dialog (avoids red box + dialog)
+          _error = isTokenError ? null : errorMessage;
+        });
+        
+        if (isTokenError) {
+          final shouldLogin = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Session Expired'),
+              content: const Text(
+                'Session expired. Please login to place order.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Login'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldLogin == true && mounted) {
+            final loginResult = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              ),
+            );
+            
+            if (loginResult == true && mounted) {
+              await Future.delayed(const Duration(milliseconds: 300));
+              if (mounted) {
+                _proceedToCheckout(cartProvider);
+              }
+            }
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
 
-  Future<void> _createOrderFromCart(BuildContext context, CartProvider cartProvider) async {
-    try {
-      final orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-      
-      final orderItems = cartProvider.items.map((cartItem) => {
-        'id': cartItem.id,
-        'product_id': cartItem.productId,
-        'product_name': cartItem.title,
-        'quantity': cartItem.quantity,
-        'price': double.parse(cartItem.price),
-        'image_url': cartItem.image,
-      }).toList();
 
-      final orderData = {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'order_number': orderNumber,
-        'created_at': DateTime.now().toIso8601String(),
-        'status': 'processing',
-        'total_amount': cartProvider.totalPrice,
-        'shipping_address': '123 Main St, City, State 12345',
-        'tracking_number': 'TRK${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
-        'estimated_delivery': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
-        'items': orderItems,
-      };
-
-      final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-      await orderProvider.createOrder(orderData);
-      
-      print('Order created successfully: $orderNumber');
-    } catch (e) {
-      print('Error creating order: $e');
-    }
-  }
 }

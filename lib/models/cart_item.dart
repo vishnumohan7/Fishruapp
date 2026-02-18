@@ -2,6 +2,7 @@ class CartItem {
   final String id;
   final String productId;
   final String variantId;
+  final int? numericItemId; // Numeric ID from items table (for foreign key in orders)
   final String title;
   final String image;
   final String price;
@@ -13,6 +14,7 @@ class CartItem {
     required this.id,
     required this.productId,
     required this.variantId,
+    this.numericItemId,
     required this.title,
     required this.image,
     required this.price,
@@ -26,6 +28,11 @@ class CartItem {
       id: json['id'],
       productId: json['productId'],
       variantId: json['variantId'],
+      numericItemId: json['numericItemId'] != null 
+          ? (json['numericItemId'] is int 
+              ? json['numericItemId'] 
+              : int.tryParse(json['numericItemId'].toString()))
+          : null,
       title: json['title'],
       image: json['image'],
       price: json['price'],
@@ -40,6 +47,7 @@ class CartItem {
       'id': id,
       'productId': productId,
       'variantId': variantId,
+      if (numericItemId != null) 'numericItemId': numericItemId,
       'title': title,
       'image': image,
       'price': price,
@@ -53,6 +61,7 @@ class CartItem {
     String? id,
     String? productId,
     String? variantId,
+    int? numericItemId,
     String? title,
     String? image,
     String? price,
@@ -64,6 +73,7 @@ class CartItem {
       id: id ?? this.id,
       productId: productId ?? this.productId,
       variantId: variantId ?? this.variantId,
+      numericItemId: numericItemId ?? this.numericItemId,
       title: title ?? this.title,
       image: image ?? this.image,
       price: price ?? this.price,

@@ -227,45 +227,7 @@ Get fresh seafood delivered to your doorstep! 🚚
                                 );
                               },
                             ),
-                            if (_selectedVariant?.compareAtPrice != null && 
-                                _selectedVariant!.compareAtPrice.isNotEmpty &&
-                                _selectedVariant!.compareAtPrice != _selectedVariant!.price) ...[
-                              const SizedBox(width: 8),
-                              Consumer<ProductProvider>(
-                                builder: (context, productProvider, child) {
-                                  return Text(
-                                    CurrencyFormatter.formatPrice(
-                                      _selectedVariant!.compareAtPrice,
-                                      productProvider.currencyCode,
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      decoration: TextDecoration.lineThrough,
-                                      color: Colors.grey[500],
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: const Text(
-                                  'SALE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            // Purchase price and sale label removed
                             const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -535,14 +497,52 @@ Get fresh seafood delivered to your doorstep! 🚚
                                 variant: _selectedVariant,
                               );
                               
-                              // Navigate directly to checkout screen
+                              // Show loading overlay
                               if (mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const CheckoutScreen(),
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => const Center(
+                                    child: CircularProgressIndicator(),
                                   ),
                                 );
+                              }
+                              
+                              try {
+                                // Get user provider and attempt auto-login
+                                final userProvider = context.read<UserProvider>();
+                                
+                                // Force retry auto-login to ensure we have a valid access token
+                                await userProvider.tryAutoLogin(forceRetry: true);
+                                
+                                if (mounted) {
+                                  // Close loading dialog
+                                  Navigator.pop(context);
+                                  
+                                  // Navigate to cart screen first so user can select delivery date and timeslot
+                                  // Then they can proceed to checkout from there
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const CartScreen(),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                print('Error during auto-login before checkout: $e');
+                                if (mounted) {
+                                  // Close loading dialog
+                                  Navigator.pop(context);
+                                  
+                                  // Still navigate to cart screen even if auto-login fails
+                                  // The cart screen will handle login if needed
+                                  await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => const CartScreen(),
+                                  ),
+                                );
+                                }
                               }
                             }
                           : null,

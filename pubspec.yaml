@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.4+5
 
 environment:
   sdk: ^3.9.2
@@ -34,13 +34,11 @@ dependencies:
   # UI and Icons
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
-  flutter_svg: ^2.0.10+1
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
   
   # State Management
   provider: ^6.1.2
-  get: ^4.6.6
   
   # HTTP and API
   http: ^1.2.2
@@ -49,8 +47,6 @@ dependencies:
   
   # Local Storage
   shared_preferences: ^2.2.3
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
   
   # Shopping Cart and E-commerce
   flutter_stripe: ^10.1.1
@@ -63,21 +59,25 @@ dependencies:
   flutter_dotenv: ^5.1.0
   share_plus: ^12.0.1
   
+  # Push Notifications
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+  flutter_local_notifications: ^18.0.1
+  
   # WebView
   webview_flutter: ^4.4.2
   
-  # Navigation
-  go_router: ^14.2.7
-  
   # Carousel
   carousel_slider: ^5.0.0
+
+  # Country Code Picker
+  country_code_picker: ^3.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  hive_generator: ^2.0.1
-  build_runner: ^2.4.9
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -123,3 +123,28 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Flutter Launcher Icons Configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/Freshbe_icon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  android_adaptive_icon_background_color: "#FFFFFF"
+  android_adaptive_icon_foreground_image: "assets/images/Freshbe_icon.png"
+  android_adaptive_icon_background_image: null
+  # Ensure proper icon generation
+  image_path_android: "assets/images/Freshbe_icon.png"
+  web:
+    generate: true
+    image_path: "assets/images/Freshbe.png"
+    background_color: "#ffffff"
+    theme_color: "#0175C2"
+  windows:
+    generate: true
+    image_path: "assets/images/Freshbe.png"
+    icon_size: 48 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "assets/images/Freshbe.png"

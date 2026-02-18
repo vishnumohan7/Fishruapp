@@ -1,14 +1,24 @@
 import 'package:fishru/screens/products_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_providers.dart';
 import '../models/cart_item.dart';
 import '../utils/app_theme.dart';
 import '../utils/currency_formatter.dart';
+import '../services/backend_service.dart';
 import 'checkout_screen.dart';
+import 'auth_screen.dart';
+import 'home_screen.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +41,8 @@ class CartScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Consumer<CartProvider>(
+      body: SafeArea(
+        child: Consumer<CartProvider>(
         builder: (context, cartProvider, child) {
           if (cartProvider.items.isEmpty) {
             return _buildEmptyCart(context);
@@ -56,6 +67,7 @@ class CartScreen extends StatelessWidget {
             ],
           );
         },
+        ),
       ),
     );
   }
@@ -87,13 +99,9 @@ class CartScreen extends StatelessWidget {
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              // Navigate to products
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProductsScreen(),
-                ),
-              );
+              // Navigate to products tab in bottom navigation
+              // Use the static helper method to switch to Products tab (index 1)
+              HomeScreen.navigateToTab(context, 1);
             },
             icon: const Icon(Icons.shopping_bag),
             label: const Text('Start Shopping'),
@@ -283,8 +291,9 @@ class CartScreen extends StatelessWidget {
   }
 
   Widget _buildCartSummary(BuildContext context, CartProvider cartProvider) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -364,33 +373,7 @@ class CartScreen extends StatelessWidget {
           const SizedBox(height: 16),
           
           // Checkout Button
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CheckoutScreen(),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Proceed to Checkout',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
+          _CheckoutButton(),
         ],
       ),
     );
@@ -450,6 +433,171 @@ class CartScreen extends StatelessWidget {
             child: const Text('Clear'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Checkout Button Widget with Auto-Login
+class _CheckoutButton extends StatefulWidget {
+  const _CheckoutButton();
+
+  @override
+  State<_CheckoutButton> createState() => _CheckoutButtonState();
+}
+
+class _CheckoutButtonState extends State<_CheckoutButton> {
+  bool _isLoading = false;
+
+  Future<void> _navigateToCheckout() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get user provider to check login status
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      
+      // Check if user is logged in
+      if (!userProvider.isLoggedIn) {
+        // User is not logged in, show login prompt dialog
+        if (!mounted) return;
+        
+        setState(() {
+          _isLoading = false;
+        });
+        
+        final shouldLogin = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Login Required'),
+            content: const Text(
+              'You need to login or sign up to complete purchase.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Login / Sign Up'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldLogin == true && mounted) {
+          // Navigate to login screen
+          final loginResult = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LoginScreen(),
+            ),
+          );
+          
+          // If login was successful (returns true), proceed to checkout
+          if (loginResult == true) {
+            // Wait a moment for state to update after login
+            await Future.delayed(const Duration(milliseconds: 300));
+            
+            if (!mounted) return;
+            
+            setState(() {
+              _isLoading = true;
+            });
+            
+            // Navigate to checkout screen
+            // Auto-login will run in the background in checkout screen
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CheckoutScreen(),
+              ),
+            );
+          } else {
+            // Login was cancelled or failed, stay on cart screen
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
+            return;
+          }
+        } else {
+          // User cancelled the dialog, stay on cart screen
+          return;
+        }
+      } else {
+        // User is already logged in, proceed directly to checkout
+        // Auto-login will run in the background in checkout screen
+        if (!mounted) return;
+        
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CheckoutScreen(),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error navigating to checkout: $e');
+      if (mounted) {
+        // Show error message but still allow navigation
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _navigateToCheckout,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                'Proceed to Checkout',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }

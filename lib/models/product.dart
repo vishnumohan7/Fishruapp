@@ -1,5 +1,6 @@
 class Product {
   final String id;
+  final int? numericId; // Numeric ID from items table (for foreign key in orders)
   final String title;
   final String description;
   final String handle;
@@ -14,6 +15,7 @@ class Product {
 
   Product({
     required this.id,
+    this.numericId,
     required this.title,
     required this.description,
     required this.handle,
@@ -70,8 +72,22 @@ class Product {
       updatedAt = DateTime.now();
     }
     
+    // Extract numeric ID if available (from backend items)
+    int? numericId;
+    if (json.containsKey('numeric_id')) {
+      final numericIdValue = json['numeric_id'];
+      if (numericIdValue is int) {
+        numericId = numericIdValue;
+      } else if (numericIdValue is String) {
+        numericId = int.tryParse(numericIdValue);
+      } else if (numericIdValue is num) {
+        numericId = numericIdValue.toInt();
+      }
+    }
+    
     return Product(
       id: json['id'].toString(),
+      numericId: numericId,
       title: json['title'] ?? '',
       description: json['body_html'] ?? '',
       handle: json['handle'] ?? '',
@@ -95,11 +111,13 @@ class Product {
     // Check product status first
     final isActive = json['status'] != null ? json['status'] == 'active' : true;
     if (!isActive) {
+      print('Product ${json['id']}: Not available (status: ${json['status']})');
       return false; // Product is not active, so not available
     }
 
     // If no variants, assume not available
     if (variants.isEmpty) {
+      print('Product ${json['id']}: Not available (no variants)');
       return false;
     }
 
@@ -128,25 +146,25 @@ class Product {
         }
       } else {
         // Inventory not managed by Shopify - could be a digital product or not tracking inventory
-        // Only assume available if there's explicit indication it should be available
-        // For physical products, we should check if there's any inventory info
-        // Default to false if inventory_quantity is explicitly 0 or negative
+        // BE CONSERVATIVE: Only consider available if inventory quantity is explicitly > 0
+        // If quantity is 0, null, or negative, treat as out of stock
         if (variant.inventoryQuantity > 0) {
           hasAvailableInventory = true;
           print('Product ${json['id']} variant ${variant.id}: Available (inventory not managed, quantity: ${variant.inventoryQuantity})');
           break;
-        } else if (variant.inventoryQuantity == 0) {
-          // Explicitly 0 inventory - out of stock
-          print('Product ${json['id']} variant ${variant.id}: Out of stock (inventory: 0, not managed)');
         } else {
-          // inventoryQuantity might be negative or null - be conservative
-          // Don't assume available if we have no reliable inventory data
-          print('Product ${json['id']} variant ${variant.id}: Unable to determine availability (inventory: ${variant.inventoryQuantity}, management: ${variant.inventoryManagement})');
+          // Explicitly 0, null, or negative inventory - out of stock
+          print('Product ${json['id']} variant ${variant.id}: Out of stock (inventory: ${variant.inventoryQuantity}, management: ${variant.inventoryManagement})');
         }
       }
     }
 
-    print('Product ${json['id']} final availability: $hasAvailableInventory');
+    final productTitle = json['title'] ?? 'Unknown';
+    if (hasAvailableInventory) {
+      print('✓ Product "$productTitle" (${json['id']}): AVAILABLE');
+    } else {
+      print('✗ Product "$productTitle" (${json['id']}): OUT OF STOCK');
+    }
     return hasAvailableInventory;
   }
 
@@ -188,6 +206,12 @@ class Product {
 
   // Getter to check availability dynamically (useful when variants might have changed)
   bool get isAvailable {
+    // First check the stored available field (set during parsing)
+    // This is more reliable as it was calculated with full context
+    if (!available) {
+      return false;
+    }
+    
     // If no variants, not available
     if (variants.isEmpty) {
       return false;
@@ -217,6 +241,10 @@ class Product {
         }
         // If quantity is 0 or negative, consider out of stock even if not managed
         // Be conservative - don't assume available without positive inventory
+        // Also check if inventoryQuantity is null/0 - treat as out of stock
+        if (variant.inventoryQuantity <= 0) {
+          return false; // Explicitly out of stock
+        }
       }
     }
 

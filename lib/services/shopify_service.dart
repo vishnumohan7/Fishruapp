@@ -161,8 +161,13 @@ class ShopifyService {
         return await getProductsByCollection(collectionIdentifier);
       }
 
+      // When loading all products (no collection filter), use maximum limit
+      // Shopify allows up to 250 products per request
+      // This ensures all products are loaded initially
+      final effectiveLimit = 250;
+      
       final queryParams = <String, dynamic>{
-        'limit': limit,
+        'limit': effectiveLimit,
       };
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -337,10 +342,11 @@ class ShopifyService {
     _ensureInitialized();
     try {
       // collectionIdentifier can be numeric ID or handle
+      // Use maximum limit (250) to ensure all products in the collection are loaded
       final response = await _dio.get(
         '/collections/$collectionIdentifier/products.json',
         queryParameters: {
-          'limit': AppConstants.productsPerPage,
+          'limit': 250, // Shopify allows up to 250 products per request
         },
       );
 
@@ -410,9 +416,16 @@ class ShopifyService {
     String? firstName,
     String? lastName,
     String? phone,
+    String? location,
   }) async {
     _ensureInitialized();
     try {
+      // Build notes string with location if provided
+      String? notes;
+      if (location != null && location.isNotEmpty) {
+        notes = 'Location: $location';
+      }
+      
       final customerData = {
         'customer': {
           'email': email,
@@ -421,6 +434,7 @@ class ShopifyService {
           if (firstName != null && firstName.isNotEmpty) 'first_name': firstName,
           if (lastName != null && lastName.isNotEmpty) 'last_name': lastName,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
+          if (notes != null && notes.isNotEmpty) 'note': notes,
           'accepts_marketing': false,
           'send_email_invite': false, // Don't send email invite
           'send_welcome_email': false, // Don't send welcome email
@@ -529,6 +543,57 @@ class ShopifyService {
     }
   }
 
+  // Update cart attributes (Delivery Date and Time)
+  // Uses Shopify's AJAX Cart API endpoint: /cart/update.js
+  Future<bool> updateCartAttributes({
+    required String deliveryDate,
+    required String deliveryTime,
+  }) async {
+    try {
+      // The /cart/update.js endpoint is a public Shopify AJAX API endpoint
+      // It doesn't require authentication tokens
+      final cartUpdateUrl = 'https://${AppConstants.storeDomain}/cart/update.js';
+      
+      final dio = Dio(BaseOptions(
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+      ));
+
+      final response = await dio.post(
+        cartUpdateUrl,
+        data: {
+          'attributes': {
+            'Delivery Date': deliveryDate,
+            'Delivery Time': deliveryTime,
+          },
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print('Cart attributes updated successfully');
+        print('Delivery Date: $deliveryDate');
+        print('Delivery Time: $deliveryTime');
+        return true;
+      } else {
+        print('Failed to update cart attributes: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Error updating cart attributes: $e');
+      if (e is DioException) {
+        print('DioException details:');
+        print('  Type: ${e.type}');
+        print('  Message: ${e.message}');
+        print('  Response: ${e.response?.data}');
+        print('  Status Code: ${e.response?.statusCode}');
+      }
+      return false;
+    }
+  }
+
   // Order Methods
   Future<Map<String, dynamic>> createOrder(Map<String, dynamic> orderData) async {
     try {
@@ -563,6 +628,100 @@ class ShopifyService {
     } catch (e) {
       print('Error fetching orders: $e');
       throw Exception('Failed to fetch orders: $e');
+    }
+  }
+
+  // Enable customer account (for guest checkout customers)
+  // Once enabled, password reset will work via Storefront API
+  Future<bool> enableCustomerAccount(String customerId) async {
+    _ensureInitialized();
+    try {
+      print('Enabling customer account: $customerId');
+      
+      // Get current customer details to preserve other fields
+      final customerDetails = await getCustomerDetails(customerId);
+      if (customerDetails == null) {
+        print('Could not fetch customer details');
+        return false;
+      }
+      
+      // Enable the customer account (set state to 'enabled')
+      // Only update the state field to avoid overwriting other data
+      final updateResponse = await _dio.put(
+        '/customers/$customerId.json',
+        data: {
+          'customer': {
+            'id': customerId,
+            'state': 'enabled', // Enable the account
+            // Preserve existing email
+            if (customerDetails['email'] != null) 'email': customerDetails['email'],
+          },
+        },
+      );
+
+      if (updateResponse.statusCode == 200) {
+        print('✓ Customer account enabled successfully');
+        return true;
+      } else {
+        print('Failed to enable customer account: ${updateResponse.statusCode}');
+        print('Response: ${updateResponse.data}');
+        return false;
+      }
+    } catch (e) {
+      print('Error enabling customer account: $e');
+      if (e is DioException) {
+        print('Dio error response: ${e.response?.data}');
+      }
+      return false;
+    }
+  }
+
+  // Send account invite to a customer (for guest checkout customers)
+  // DEPRECATED: Use enableCustomerAccountAndSendPasswordReset instead
+  @Deprecated('Use enableCustomerAccountAndSendPasswordReset for better password setup')
+  Future<bool> sendCustomerAccountInvite(String customerId) async {
+    _ensureInitialized();
+    try {
+      print('Sending account invite to customer: $customerId');
+      
+      final response = await _dio.post(
+        '/customers/$customerId/send_invite.json',
+        data: {
+          'customer_invite': {
+            'to': null, // Use customer's email from their record
+            'from': null, // Use store's default email
+            'subject': null, // Use default subject
+            'custom_message': null, // Optional custom message
+          },
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✓ Account invite sent successfully');
+        return true;
+      } else {
+        print('Failed to send account invite: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Error sending account invite: $e');
+      return false;
+    }
+  }
+
+  // Get customer details to check if they have an account
+  Future<Map<String, dynamic>?> getCustomerDetails(String customerId) async {
+    _ensureInitialized();
+    try {
+      final response = await _dio.get('/customers/$customerId.json');
+      
+      if (response.statusCode == 200) {
+        return response.data['customer'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting customer details: $e');
+      return null;
     }
   }
 

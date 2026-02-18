@@ -3,10 +3,14 @@ import 'package:fishru/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_providers.dart';
+import '../providers/address_provider.dart';
 import '../models/order.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  /// When false (used as tab in HomeScreen), back button switches to Home tab.
+  final bool showBackButton;
+
+  const OrdersScreen({super.key, this.showBackButton = true});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -17,15 +21,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Get the current user's email to fetch their specific orders
-      final userProvider = context.read<UserProvider>();
-      final customerEmail = userProvider.user?.email;
       final orderProvider = context.read<OrderProvider>();
       
-      // Fetch orders and start auto-refresh for real-time updates
-      orderProvider.fetchOrders(customerEmail: customerEmail);
-      orderProvider.startAutoRefresh(customerEmail: customerEmail);
+      // Fetch orders using mobile number (from SharedPreferences)
+      // The fetchOrders method now uses mobile number from SharedPreferences
+      orderProvider.fetchOrders().then((_) {
+        // Save addresses from fetched orders
+        _saveAddressesFromOrders();
+      });
+      // Start auto-refresh (uses mobile number from SharedPreferences)
+      orderProvider.startAutoRefresh();
     });
+  }
+
+  Future<void> _saveAddressesFromOrders() async {
+    try {
+      final orderProvider = context.read<OrderProvider>();
+      final addressProvider = context.read<AddressProvider>();
+      
+      // Save addresses from all orders
+      for (final order in orderProvider.orders) {
+        if (order.shippingAddress.isNotEmpty && 
+            order.shippingAddress != 'Address to be confirmed') {
+          await addressProvider.saveAddressFromOrder(order.shippingAddress);
+        }
+      }
+    } catch (e) {
+      print('Error saving addresses from orders: $e');
+    }
   }
 
   @override
@@ -41,7 +64,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
       appBar: AppBar(
           leading: IconButton(
       icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-      onPressed: () => Navigator.pop(context),
+      onPressed: () {
+        if (widget.showBackButton && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          HomeScreen.navigateToTab(context, 0); // Switch to Home tab
+        }
+      },
     ),
         title: const Text('My Orders',style: TextStyle(color:Colors.white),),
         backgroundColor:  Color(0xFF00ACC1),
@@ -52,9 +81,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
             icon: const Icon(Icons.refresh,color:Colors.white,),
             onPressed: () async {
               // Manual refresh for immediate status updates
-              final userProvider = context.read<UserProvider>();
-              final customerEmail = userProvider.user?.email;
-              await context.read<OrderProvider>().fetchOrders(customerEmail: customerEmail);
+              // Uses mobile number from SharedPreferences
+              await context.read<OrderProvider>().fetchOrders();
             },
             tooltip: 'Refresh Orders',
           ),
@@ -121,11 +149,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              // Get the current user's email to fetch their specific orders
-              final userProvider = context.read<UserProvider>();
-              final customerEmail = userProvider.user?.email;
-              
-              await orderProvider.fetchOrders(customerEmail: customerEmail);
+              // Fetch orders using mobile number from SharedPreferences
+              await orderProvider.fetchOrders();
             },
             child: Column(
               children: [
@@ -172,6 +197,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
         },
       ),
     );
+  }
+}
+
+// Helper functions for order status display
+String _getStatusDisplayText(String status) {
+  switch (status.toLowerCase()) {
+    case 'order_placed':
+      return 'order placed';
+    case 'pending':
+      return 'order placed'; // Also show as "order placed" for backward compatibility
+    default:
+      return status;
+  }
+}
+
+Color _getStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'order_placed':
+      return Colors.green;
+    case 'pending':
+      return Colors.orange;
+    case 'processing':
+      return Colors.blue;
+    case 'shipped':
+      return Colors.purple;
+    case 'delivered':
+      return Colors.green;
+    case 'cancelled':
+      return Colors.red;
+    default:
+      return Colors.grey;
   }
 }
 
@@ -223,7 +279,7 @@ class OrderCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      order.status.toUpperCase(),
+                      _getStatusDisplayText(order.status).toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -310,7 +366,7 @@ class OrderDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Order #${order.orderNumber}'),
-        backgroundColor: Colors.blue[600],
+        backgroundColor: Color(0xFF00ACC1),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -321,6 +377,10 @@ class OrderDetailsScreen extends StatelessWidget {
           children: [
             // Order Status Card
             Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -334,27 +394,23 @@ class OrderDetailsScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(order.status),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            order.status.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(order.status),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        _getStatusDisplayText(order.status).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -371,7 +427,7 @@ class OrderDetailsScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              _formatDate(order.createdAt),
+                              _formatDateTime(order.createdAt),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
@@ -392,7 +448,7 @@ class OrderDetailsScreen extends StatelessWidget {
                             Text(
                               '₹${order.totalAmount.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
                               ),
@@ -407,6 +463,84 @@ class OrderDetailsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             
+            // Delivery Status (separate from Order Status)
+            if (order.deliverStatus != null && order.deliverStatus!.isNotEmpty)
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Delivery Status',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getDeliveryStatusColor(order.deliverStatus!),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          order.deliverStatus!.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            
+            if (order.deliverStatus != null && order.deliverStatus!.isNotEmpty)
+              const SizedBox(height: 16),
+            
+            // Customer Information
+            if (order.customerName != null || order.mobile != null)
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Customer Information',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (order.customerName != null && order.customerName!.isNotEmpty)
+                        _buildDetailRow('Name', order.customerName!),
+                      if (order.mobile != null && order.mobile!.isNotEmpty)
+                        _buildDetailRow('Mobile', order.mobile!),
+                    ],
+                  ),
+                ),
+              ),
+            
+            if (order.customerName != null || order.mobile != null)
+              const SizedBox(height: 16),
+            
             // Order Items
             const Text(
               'Order Items',
@@ -420,8 +554,120 @@ class OrderDetailsScreen extends StatelessWidget {
             
             const SizedBox(height: 16),
             
+            // Price Breakdown
+            Builder(
+              builder: (context) {
+                // Calculate subtotal from items
+                double subtotal = 0.0;
+                for (var item in order.items) {
+                  subtotal += item.price * item.quantity;
+                }
+                
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Price Breakdown',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildPriceRow('Subtotal', subtotal),
+                        if (order.discount != null && order.discount! > 0)
+                          _buildPriceRow('Discount', -order.discount!, isDiscount: true),
+                        const Divider(),
+                        _buildPriceRow('Total', order.totalAmount, isTotal: true),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Payment Information
+            if (order.paymentMode != null || order.paymentStatus != null)
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Payment Information',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (order.paymentMode != null && order.paymentMode!.isNotEmpty)
+                        _buildDetailRow('Payment Mode', order.paymentMode!),
+                      if (order.paymentStatus != null && order.paymentStatus!.isNotEmpty)
+                        _buildDetailRow('Payment Status', order.paymentStatus!,
+                            valueColor: order.paymentStatus!.toLowerCase() == 'pending'
+                                ? Colors.orange
+                                : Colors.green),
+                    ],
+                  ),
+                ),
+              ),
+            
+            if (order.paymentMode != null || order.paymentStatus != null)
+              const SizedBox(height: 16),
+            
+            // Delivery Information
+            if (order.deliverySlot != null || order.areaName != null)
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Delivery Information',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (order.deliverySlot != null && order.deliverySlot!.isNotEmpty)
+                        _buildDetailRow('Delivery Slot', order.deliverySlot!),
+                      if (order.areaName != null && order.areaName!.isNotEmpty)
+                        _buildDetailRow('Area', order.areaName!),
+                    ],
+                  ),
+                ),
+              ),
+            
+            if (order.deliverySlot != null || order.areaName != null)
+              const SizedBox(height: 16),
+            
             // Shipping Address
             Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -436,15 +682,114 @@ class OrderDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      order.shippingAddress,
-                      style: const TextStyle(fontSize: 16),
+                      order.shippingAddress.isNotEmpty
+                          ? order.shippingAddress
+                          : 'Address to be confirmed',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: order.shippingAddress.isEmpty ? Colors.grey : Colors.black87,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
+            
+            // Comments
+            if (order.comments != null && order.comments!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Comments',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        order.comments!,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                color: valueColor ?? Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceRow(String label, double amount, {bool isDiscount = false, bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            '${isDiscount ? '-' : ''}₹${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: isTotal ? 18 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal
+                  ? Colors.green
+                  : isDiscount
+                      ? Colors.red
+                      : Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -468,6 +813,35 @@ class OrderDetailsScreen extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  String _formatDateTime(DateTime date) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Color _getDeliveryStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'delivered':
+      case 'completed':
+        return Colors.green;
+      case 'out for delivery':
+      case 'shipped':
+        return Colors.blue;
+      case 'processing':
+      case 'preparing':
+        return Colors.orange;
+      case 'pending':
+        return Colors.grey;
+      case 'cancelled':
+      case 'canceled':
+        return Colors.red;
+      default:
+        return Colors.blue[300]!;
+    }
   }
 }
 
@@ -526,20 +900,32 @@ class OrderItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Quantity: ${item.quantity}',
+                    'Quantity: ${item.quantity.toStringAsFixed(item.quantity % 1 == 0 ? 0 : 1)}',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '₹${item.price.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${item.price.toStringAsFixed(2)} per unit',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        '₹${(item.price * item.quantity).toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

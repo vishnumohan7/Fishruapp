@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/product.dart';
-import '../services/shopify_service.dart';
+import '../services/backend_service.dart';
 import '../constants/app_constants.dart';
 import '../services/mock_data_service.dart';
 
@@ -11,7 +11,7 @@ class WishlistProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String? _currentUserId;
-  final ShopifyService _shopifyService = ShopifyService();
+  final BackendService _backendService = BackendService();
 
   List<Product> get wishlistItems => _wishlistItems;
   bool get isLoading => _isLoading;
@@ -90,8 +90,12 @@ class WishlistProvider with ChangeNotifier {
             if (AppConstants.useMockData) {
               freshProduct = MockDataService.getProductById(product.id);
             } else {
-              _shopifyService.initialize();
-              freshProduct = await _shopifyService.getProduct(product.id);
+              // Use custom backend API instead of Shopify
+              freshProduct = await _backendService.getItemAsProduct(product.id);
+              
+              // TODO: Commented out Shopify - using custom backend
+              // _shopifyService.initialize();
+              // freshProduct = await _shopifyService.getProduct(product.id);
             }
             
             // Use fresh product data if available, otherwise use cached product

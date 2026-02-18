@@ -1,344 +1,24 @@
 
 import 'package:fishru/providers/app_providers.dart';
 import 'package:fishru/screens/home_screen.dart';
+import 'package:fishru/screens/otp_login_screen.dart';
 import 'package:fishru/utils/app_theme.dart';
 import 'package:fishru/widgets/custom_textfield.dart';
+import 'package:fishru/services/backend_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class LoginScreen extends StatefulWidget {
+// Export the OTP login screen as the main login screen
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
-
-  @override
-  void initState() {
-    super.initState();
-    // Clear any error messages when login screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      userProvider.clearError();
-    });
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Consumer<UserProvider>(
-        builder: (context, userProvider, _) {
-          return Stack(
-            children: [
-              SafeArea(
-                child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 60),
-
-              // Logo and Title
-              Column(
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Image.asset(
-                      'assets/logo.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Welcome Back',
-                    style: Theme.of(context).textTheme.headlineLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sign in to your account',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 48),
-
-              // Login Form
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Email Field
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        textAlign: TextAlign.left,
-                        "Email",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ),
-                    CustomTextField(
-                      controller: _emailController,
-                      labelText: 'Email ID',
-                      prefixIcon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      hintText: 'Enter your email',
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
+    return const OtpLoginScreen();
                         }
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(value)) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        textAlign: TextAlign.left,
-                        "Password",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ),
-                    // Password Field
-                    CustomTextField(
-                      controller: _passwordController,
-                      labelText: 'Password',
-                      prefixIcon: Icons.lock_outlined,
-                      hintText: 'Enter your password',
-                      obscureText: _obscurePassword,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Forgot Password Link
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ForgotPasswordScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Login Button
-                    Consumer<UserProvider>(
-                      builder: (context, userProvider, child) {
-                        return SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: userProvider.isLoading
-                                ? null
-                                : _handleLogin,
-                            child: userProvider.isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : const Text('Sign In'),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Error Message
-                    Consumer<UserProvider>(
-                      builder: (context, userProvider, child) {
-                        if (userProvider.error != null) {
-                          return Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.errorColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppTheme.errorColor.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Text(
-                              userProvider.error!,
-                              style: TextStyle(color: AppTheme.errorColor),
-                              textAlign: TextAlign.center,
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Sign Up Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size(0, 0),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () {
-                            // Navigator.pushReplacement(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //     builder: (context) => const RegisterScreen(),
-                            //   ),
-                            // );
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text('Sign Up'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-                ),
-              ),
-              if (userProvider.isLoading)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withOpacity(0.2),
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
-
-      final success = await userProvider.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-
-      if (success && mounted) {
-        // Set user ID for wishlist after successful login
-        if (userProvider.user != null) {
-          await wishlistProvider.setUserId(userProvider.user!.id);
-        }
-        
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      }
-    }
-  }
 }
+
+// Old email/password login screen removed - using OTP login only
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -354,7 +34,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _emailSent = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Clear any error messages when forgot password screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      userProvider.clearError();
+    });
+    
+    // Clear error when user starts typing
+    _emailController.addListener(_clearErrorOnInput);
+  }
+
+  void _clearErrorOnInput() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (userProvider.error != null) {
+      userProvider.clearError();
+    }
+  }
+
+  @override
   void dispose() {
+    // Remove listener before disposing
+    _emailController.removeListener(_clearErrorOnInput);
+    // Clear error when leaving the screen
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    userProvider.clearError();
     _emailController.dispose();
     super.dispose();
   }
@@ -525,6 +230,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
 
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      // Clear any previous errors before attempting password reset
+      userProvider.clearError();
+      
       final success = await userProvider.forgotPassword(
         _emailController.text.trim(),
       );
@@ -549,13 +257,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                userProvider.error ?? 'Failed to send reset email. Please try again.',
+          // Show error dialog for better visibility, especially for multi-line errors
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              backgroundColor: AppTheme.errorColor,
-              duration: const Duration(seconds: 3),
+              title: const Text('Password Reset Failed'),
+              content: SingleChildScrollView(
+                child: Text(
+                userProvider.error ?? 'Failed to send reset email. Please try again.',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
             ),
           );
         }
@@ -582,6 +303,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptTerms = false;
+  
+  // Location dropdown state
+  List<String> _locations = [];
+  String? _selectedLocation;
+  bool _isLoadingLocations = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocations();
+  }
 
   @override
   void dispose() {
@@ -592,6 +324,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLocations() async {
+    setState(() {
+      _isLoadingLocations = true;
+    });
+
+    try {
+      final backendService = BackendService();
+      final locations = await backendService.getLocations();
+      
+      setState(() {
+        _locations = locations;
+        _isLoadingLocations = false;
+      });
+    } catch (e) {
+      print('Error loading locations: $e');
+      setState(() {
+        _isLoadingLocations = false;
+      });
+    }
   }
 
   @override
@@ -744,6 +497,95 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     const SizedBox(height: 14),
 
+                    // Location Field
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            textAlign: TextAlign.left,
+                            "Service Area",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "*",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedLocation,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          border: InputBorder.none,
+                          prefixIcon: Icon(
+                            Icons.location_on_outlined,
+                            color: AppTheme.primaryColor,
+                          ),
+                          hintText: 'Select your location',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 16,
+                          ),
+                        ),
+                        items: _locations.map((location) {
+                          return DropdownMenuItem<String>(
+                            value: location,
+                            child: Text(location),
+                          );
+                        }).toList(),
+                        onChanged: _isLoadingLocations
+                            ? null
+                            : (String? newValue) {
+                                setState(() {
+                                  _selectedLocation = newValue;
+                                });
+                              },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select your location';
+                          }
+                          return null;
+                        },
+                        icon: _isLoadingLocations
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.arrow_drop_down),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
                     // Password Field
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -891,6 +733,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Consumer<UserProvider>(
                       builder: (context, userProvider, child) {
                         if (userProvider.error != null) {
+                          final isGuestCheckoutError = userProvider.error!.toLowerCase().contains('guest checkout');
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -900,10 +743,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: AppTheme.errorColor.withOpacity(0.3),
                               ),
                             ),
-                            child: Text(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
                               userProvider.error!,
                               style: TextStyle(color: AppTheme.errorColor),
-                              textAlign: TextAlign.center,
+                                  textAlign: TextAlign.left,
+                                ),
+                                if (isGuestCheckoutError) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Quick Solution:',
+                                    style: TextStyle(
+                                      color: AppTheme.errorColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '1. Go to Login screen\n'
+                                    '2. Click "Forgot Password"\n'
+                                    '3. Enter your email\n'
+                                    '4. Check your email to set up your password',
+                                    style: TextStyle(
+                                      color: AppTheme.errorColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           );
                         }
@@ -949,7 +819,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
+      // Additional validation: ensure location is selected
+      if (_selectedLocation == null || _selectedLocation!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your location'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+        return;
+      }
+
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      // Clear any previous errors before attempting registration
+      userProvider.clearError();
 
       final success = await userProvider.register(
         email: _emailController.text.trim(),
@@ -963,6 +846,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phone: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : null,
+        location: _selectedLocation,
       );
 
       if (success && mounted) {

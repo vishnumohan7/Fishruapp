@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/address_provider.dart';
 import '../providers/app_providers.dart';
+import '../providers/store_credit_provider.dart';
 import '../utils/app_theme.dart';
 import 'auth_screen.dart';
 import 'edit_profile_screen.dart';
+import 'home_screen.dart';
 import 'orders_screen.dart';
 import 'wishlist_screen.dart';
 import 'notifications_screen.dart';
+import 'store_credit_screen.dart';
+import 'addresses_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -48,8 +53,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         //   if (isTablet) const SizedBox(width: 8),
         // ],
       ),
-      body: Consumer<UserProvider>(
-        builder: (context, userProvider, child) {
+      body: Consumer2<UserProvider, StoreCreditProvider>(
+        builder: (context, userProvider, storeCreditProvider, child) {
+          // Load store credit when user is logged in
+          if (userProvider.user != null && storeCreditProvider.storeCredit == null && !storeCreditProvider.isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              storeCreditProvider.fetchStoreCredit(
+                userProvider.user!.id,
+                customerEmail: userProvider.user!.email,
+              );
+            });
+          }
           if (userProvider.user == null) {
             return Center(
               child: Padding(
@@ -77,6 +91,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.grey[700],
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: isTablet ? 52 : 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            fontSize: isTablet ? 17 : 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: isTablet ? 52 : 50,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterScreen(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Sign Up',
+                          style: TextStyle(
+                            fontSize: isTablet ? 17 : 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -290,24 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             subtitle: 'View your order history',
             color: Colors.orange,
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const OrdersScreen(),
-                ),
-              );
-            },
-            isTablet: isTablet,
-          ),
-          Divider(height: 1, indent: isTablet ? 72 : 68),
-          _buildProfileOption(
-            context,
-            icon: Icons.location_on_outlined,
-            title: 'Addresses',
-            subtitle: 'Manage your shipping addresses',
-            color: Colors.red,
-            onTap: () {
-              // TODO: Implement address management
+              HomeScreen.navigateToTab(context, 3); // Orders tab (with bottom nav)
             },
             isTablet: isTablet,
           ),
@@ -344,6 +401,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
             isTablet: isTablet,
+          ),
+          Divider(height: 1, indent: isTablet ? 72 : 68),
+          _buildProfileOption(
+            context,
+            icon: Icons.location_on_outlined,
+            title: 'My Addresses',
+            subtitle: 'Manage your delivery addresses',
+            color: Colors.green,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddressesScreen(),
+                ),
+              );
+            },
+            isTablet: isTablet,
+          ),
+          Divider(height: 1, indent: isTablet ? 72 : 68),
+          Consumer<StoreCreditProvider>(
+            builder: (context, storeCreditProvider, child) {
+              return _buildProfileOption(
+                context,
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Store Credit',
+                subtitle: 'Balance: ₹${storeCreditProvider.balance.toStringAsFixed(2)}',
+                color: Colors.teal,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const StoreCreditScreen(),
+                    ),
+                  );
+                },
+                isTablet: isTablet,
+              );
+            },
           ),
         ],
       ),
@@ -509,12 +604,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (orderProvider.orders.isNotEmpty)
                       TextButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const OrdersScreen(),
-                            ),
-                          );
+                          HomeScreen.navigateToTab(context, 3); // Orders tab (with bottom nav)
                         },
                         child: Text(
                           'View All',
@@ -624,12 +714,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const OrdersScreen(),
-          ),
-        );
+        HomeScreen.navigateToTab(context, 3); // Orders tab (with bottom nav)
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -873,10 +958,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () async {
-              // Clear wishlist before logout
+              // Clear wishlist and addresses before logout so next user doesn't see previous user's data
+              if (!context.mounted) return;
               final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
               await wishlistProvider.clearUserId();
-              
+              if (!context.mounted) return;
+              final addressProvider = Provider.of<AddressProvider>(context, listen: false);
+              await addressProvider.clearAddresses();
+              if (!context.mounted) return;
               userProvider.logout();
               if (context.mounted) {
                 Navigator.pop(context);

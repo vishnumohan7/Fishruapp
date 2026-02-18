@@ -1,4 +1,4 @@
-package com.example.fishru
+package com.dsg.fishru
 
 import io.flutter.embedding.android.FlutterActivity
 

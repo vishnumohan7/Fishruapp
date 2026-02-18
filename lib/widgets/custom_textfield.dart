@@ -23,6 +23,10 @@ class CustomTextField extends StatefulWidget {
   final VoidCallback? onTap;
   final void Function(String)? onChanged;
   final double? width;
+  final int? maxLength;
+  final TextAlign? textAlign;
+  final TextInputAction? textInputAction;
+  final void Function(String)? onFieldSubmitted;
 
   const CustomTextField({
     super.key,
@@ -46,6 +50,10 @@ class CustomTextField extends StatefulWidget {
     this.onTap,
     this.onChanged,
     this.width,
+    this.maxLength,
+    this.textAlign,
+    this.textInputAction,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -65,7 +73,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
         width: fieldWidth,
         child: Focus(
           onFocusChange: (hasFocus) {
-            setState(() => _isFocused = hasFocus);
+            if (mounted) {
+              setState(() => _isFocused = hasFocus);
+            }
           },
           child: TextFormField(
             controller: widget.controller,
@@ -73,6 +83,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
             obscureText: widget.obscureText,
             enabled: widget.enabled,
             maxLines: widget.maxLines,
+            maxLength: widget.maxLength,
+            textAlign: widget.textAlign ?? TextAlign.left,
+            textInputAction: widget.textInputAction,
+            onFieldSubmitted: widget.onFieldSubmitted,
             onTap: widget.onTap,
             onChanged: widget.onChanged,
             validator: widget.validator,
