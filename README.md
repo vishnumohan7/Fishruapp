@@ -45,4 +45,4 @@ flutter run --dart-define=SHOPIFY_ACCESS_TOKEN=your_token_here --dart-define=SHO
 
 ## Security Note
 
-Never commit API tokens or sensitive information to version control. Use environment variables or secure configuration management.
+Never commit API tokens or sensitive information to version control. Use environment variables or secure configuration management.# mobile-app
